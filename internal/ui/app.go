@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"reflect"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -32,6 +33,7 @@ type App struct {
 	player  *audio.Player
 
 	playlists          []model.Playlist
+	allTracks          []model.Track
 	tracks             []model.Track
 	selectedPL         int64
 	selectedTrack      int
@@ -48,6 +50,7 @@ type App struct {
 	volume               *widget.Slider
 	playBtn              *PlayButton
 	trackListHead        *widget.Label
+	trackSearch          *searchEntry
 	spectrum             *SpectrumViz
 	playlistPanel        fyne.CanvasObject
 	playlistsBtn         *widget.Button
@@ -91,6 +94,23 @@ func (a *App) ShowAndRun() {
 func (a *App) build() {
 	a.trackListHead = widget.NewLabel("Tracks")
 	a.trackListHead.TextStyle = fyne.TextStyle{Bold: true}
+
+	a.trackSearch = newSearchEntry()
+	a.trackSearch.SetOnChanged(func(string) {
+		a.selectedTrack = -1
+		a.applyTrackFilter()
+		a.trackList.Refresh()
+		a.trackList.UnselectAll()
+	})
+	searchIcon := widget.NewIcon(theme.SearchIcon())
+	searchIconBox := container.New(layout.NewGridWrapLayout(fyne.NewSize(22, 22)), searchIcon)
+	underline := canvas.NewRectangle(color.NRGBA{R: 0xd0, G: 0xd5, B: 0xdc, A: 0xff})
+	underline.SetMinSize(fyne.NewSize(0, 1))
+	searchField := container.NewBorder(nil, underline, nil, nil, a.trackSearch.field())
+	// ~50% larger than 160×28; height must stay above Entry MinSize or text clips.
+	searchSized := container.New(layout.NewGridWrapLayout(fyne.NewSize(240, 42)), searchField)
+	searchRow := container.NewHBox(container.NewCenter(searchIconBox), searchSized)
+	trackHead := container.NewBorder(nil, nil, a.trackListHead, searchRow)
 
 	a.playlistList = widget.NewList(
 		func() int { return len(a.playlists) },
@@ -154,7 +174,7 @@ func (a *App) build() {
 	a.playlistPanelVisible = true
 	a.playlistsBtn.Importance = widget.HighImportance
 
-	center := container.NewBorder(a.trackListHead, nil, nil, nil, a.trackList)
+	center := container.NewBorder(trackHead, nil, nil, nil, a.trackList)
 	left := container.NewHBox(railBox, a.playlistPanel)
 	body := container.NewBorder(nil, nil, left, nil, center)
 
@@ -303,17 +323,43 @@ func (a *App) selectPlaylist(id int64) {
 		a.setStatus("Failed to load tracks: " + err.Error())
 		return
 	}
-	a.tracks = tracks
-	name := "Tracks"
-	for _, p := range a.playlists {
-		if p.ID == id {
-			name = p.Name
-			break
-		}
-	}
-	a.trackListHead.SetText(fmt.Sprintf("%s (%d)", name, len(tracks)))
+	a.allTracks = tracks
+	a.applyTrackFilter()
 	a.trackList.Refresh()
 	a.trackList.UnselectAll()
+}
+
+func (a *App) currentPlaylistName() string {
+	for _, p := range a.playlists {
+		if p.ID == a.selectedPL {
+			return p.Name
+		}
+	}
+	return "Tracks"
+}
+
+func (a *App) trackFilterActive() bool {
+	return a.trackSearch != nil && strings.TrimSpace(a.trackSearch.Text) != ""
+}
+
+// applyTrackFilter sets a.tracks from allTracks using the search entry (case-insensitive title match).
+func (a *App) applyTrackFilter() {
+	q := ""
+	if a.trackSearch != nil {
+		q = strings.ToLower(strings.TrimSpace(a.trackSearch.Text))
+	}
+	if q == "" {
+		a.tracks = a.allTracks
+	} else {
+		filtered := make([]model.Track, 0, len(a.allTracks))
+		for _, t := range a.allTracks {
+			if strings.Contains(strings.ToLower(t.DisplayTitle()), q) {
+				filtered = append(filtered, t)
+			}
+		}
+		a.tracks = filtered
+	}
+	a.trackListHead.SetText(fmt.Sprintf("%s (%d)", a.currentPlaylistName(), len(a.tracks)))
 }
 
 // playFrom starts playback at index and continues through the rest of the list.
@@ -328,6 +374,9 @@ func (a *App) playFrom(index int) {
 }
 
 func (a *App) moveTrack(from, to int) {
+	if a.trackFilterActive() {
+		return
+	}
 	if from == to || from < 0 || to < 0 || from >= len(a.tracks) || to >= len(a.tracks) {
 		return
 	}
@@ -336,14 +385,15 @@ func (a *App) moveTrack(from, to int) {
 		a.setStatus("Reorder failed: " + err.Error())
 		return
 	}
-	a.tracks = tracks
+	a.allTracks = tracks
+	a.applyTrackFilter()
 	a.selectedTrack = to
 
 	// Keep playback queue aligned with new list order if we are playing this playlist.
 	if cur, ok := a.queue.Current(); ok {
-		for i, t := range a.tracks {
+		for i, t := range a.allTracks {
 			if t.Path == cur.Path {
-				a.queue.Set(a.tracks[i:])
+				a.queue.Set(a.allTracks[i:])
 				break
 			}
 		}
@@ -358,12 +408,22 @@ func (a *App) removeTrackFromPlaylist(index int) {
 		return
 	}
 	removed := a.tracks[index]
+	storePos := -1
+	for i, t := range a.allTracks {
+		if t.Path == removed.Path {
+			storePos = i
+			break
+		}
+	}
+	if storePos < 0 {
+		return
+	}
 	playingRemoved := false
 	if cur, ok := a.queue.Current(); ok && cur.Path == removed.Path {
 		playingRemoved = true
 	}
 
-	if err := a.store.RemoveTrackAt(a.selectedPL, index); err != nil {
+	if err := a.store.RemoveTrackAt(a.selectedPL, storePos); err != nil {
 		a.setStatus("Remove failed: " + err.Error())
 		return
 	}
@@ -372,26 +432,18 @@ func (a *App) removeTrackFromPlaylist(index int) {
 		a.setStatus("Failed to load tracks: " + err.Error())
 		return
 	}
-	a.tracks = tracks
-
-	name := "Tracks"
-	for _, p := range a.playlists {
-		if p.ID == a.selectedPL {
-			name = p.Name
-			break
-		}
-	}
-	a.trackListHead.SetText(fmt.Sprintf("%s (%d)", name, len(tracks)))
+	a.allTracks = tracks
+	a.applyTrackFilter()
 
 	if playingRemoved {
 		// Keep the removed track as current so the playing file can finish;
 		// Next() then continues with what followed it in the playlist.
-		rest := append([]model.Track{removed}, a.tracks[min(index, len(a.tracks)):]...)
+		rest := append([]model.Track{removed}, a.allTracks[min(storePos, len(a.allTracks)):]...)
 		a.queue.Set(rest)
 	} else if cur, ok := a.queue.Current(); ok {
-		for i, t := range a.tracks {
+		for i, t := range a.allTracks {
 			if t.Path == cur.Path {
-				a.queue.Set(a.tracks[i:])
+				a.queue.Set(a.allTracks[i:])
 				break
 			}
 		}

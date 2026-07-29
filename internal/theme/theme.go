@@ -22,7 +22,7 @@ var (
 	colorText     = color.NRGBA{R: 0x1c, G: 0x22, B: 0x2c, A: 0xff}
 	colorMuted    = color.NRGBA{R: 0x7a, G: 0x84, B: 0x93, A: 0xff}
 	colorSep      = color.NRGBA{R: 0xea, G: 0xed, B: 0xf1, A: 0xff}
-	colorInput    = color.NRGBA{R: 0xe2, G: 0xe6, B: 0xeb, A: 0xff} // soft gray — slider remaining track
+	colorInput    = color.NRGBA{R: 0xf4, G: 0xf6, B: 0xf8, A: 0xff} // light fill for entries + slider track
 	colorScroll   = color.NRGBA{R: 0xd0, G: 0xd5, B: 0xdc, A: 0xff}
 	colorDisabled = color.NRGBA{R: 0xaa, G: 0xb1, B: 0xbb, A: 0xff}
 	colorError    = color.NRGBA{R: 0xd9, G: 0x45, B: 0x4f, A: 0xff}
@@ -107,6 +107,8 @@ func (t *PlayerTheme) Size(name fyne.ThemeSizeName) float32 {
 		return 11
 	case theme.SizeNameInputBorder:
 		return 1
+	case theme.SizeNameInputRadius:
+		return 6
 	case theme.SizeNameScrollBar:
 		return 6
 	case theme.SizeNameScrollBarSmall:
@@ -119,5 +121,45 @@ func (t *PlayerTheme) Size(name fyne.ThemeSizeName) float32 {
 		return 10
 	default:
 		return theme.DefaultTheme().Size(name)
+	}
+}
+
+// UnderlineInputTheme is a flat white entry (no box border/shadow) for underline-style fields.
+type UnderlineInputTheme struct{}
+
+var _ fyne.Theme = (*UnderlineInputTheme)(nil)
+
+func (t *UnderlineInputTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	switch name {
+	case theme.ColorNameInputBackground, theme.ColorNameInputBorder, theme.ColorNameShadow,
+		theme.ColorNameScrollBar:
+		// Transparent field chrome; caret uses Primary (must stay opaque).
+		return color.NRGBA{A: 0}
+	default:
+		return (&PlayerTheme{}).Color(name, variant)
+	}
+}
+
+func (t *UnderlineInputTheme) Font(style fyne.TextStyle) fyne.Resource {
+	return (&PlayerTheme{}).Font(style)
+}
+
+func (t *UnderlineInputTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+	return (&PlayerTheme{}).Icon(name)
+}
+
+func (t *UnderlineInputTheme) Size(name fyne.ThemeSizeName) float32 {
+	switch name {
+	case theme.SizeNameInputRadius, theme.SizeNameInputBorder:
+		// Zero border: no focus ring. Caret is drawn by ui.searchEntry instead.
+		return 0
+	case theme.SizeNamePadding:
+		return 6
+	case theme.SizeNameInnerPadding:
+		return 8
+	case theme.SizeNameText:
+		return 14
+	default:
+		return (&PlayerTheme{}).Size(name)
 	}
 }
