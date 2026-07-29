@@ -1,0 +1,8 @@
+[Details]
+Name = "Robsong"
+ID = "com.rdurica.robsong"
+Version = "0.1.0"
+Build = 1
+
+[Migrations]
+fyneDo = true

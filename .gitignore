@@ -1,0 +1,8 @@
+/robsong
+.link/
+*.exe
+*.test
+*.out
+.idea/
+.vscode/
+*.db
