@@ -24,6 +24,8 @@ import (
 	"github.com/rdurica/robsong/internal/queue"
 )
 
+const prefLastPlaylistID = "last_playlist_id"
+
 // App wires UI, store, queue and player.
 type App struct {
 	fyneApp fyne.App
@@ -75,8 +77,16 @@ func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
 	a.build()
 	a.reloadPlaylists()
 	if len(a.playlists) > 0 {
-		a.selectPlaylist(a.playlists[0].ID)
-		a.playlistList.Select(0)
+		want := int64(a.fyneApp.Preferences().IntWithFallback(prefLastPlaylistID, int(a.playlists[0].ID)))
+		idx := 0
+		for i, p := range a.playlists {
+			if p.ID == want {
+				idx = i
+				break
+			}
+		}
+		a.selectPlaylist(a.playlists[idx].ID)
+		a.playlistList.Select(idx)
 	}
 	a.spectrum.Start()
 	a.nowTitle.Start()
@@ -171,8 +181,9 @@ func (a *App) build() {
 	a.playlistPanel = container.NewBorder(nil, nil, nil, widget.NewSeparator(),
 		container.NewBorder(panelHead, nil, nil, nil, a.playlistList),
 	)
-	a.playlistPanelVisible = true
-	a.playlistsBtn.Importance = widget.HighImportance
+	a.playlistPanelVisible = false
+	a.playlistPanel.Hide()
+	a.playlistsBtn.Importance = widget.LowImportance
 
 	center := container.NewBorder(trackHead, nil, nil, nil, a.trackList)
 	left := container.NewHBox(railBox, a.playlistPanel)
@@ -327,6 +338,7 @@ func (a *App) selectPlaylist(id int64) {
 	a.applyTrackFilter()
 	a.trackList.Refresh()
 	a.trackList.UnselectAll()
+	a.fyneApp.Preferences().SetInt(prefLastPlaylistID, int(id))
 }
 
 func (a *App) currentPlaylistName() string {
