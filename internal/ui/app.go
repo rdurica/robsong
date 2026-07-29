@@ -662,25 +662,31 @@ func (a *App) deleteSelectedPlaylist() {
 
 // showTrackContextMenu shows right-click actions for a track.
 func (a *App) showTrackContextMenu(index int, t model.Track, pos fyne.Position) {
-	items := []*fyne.MenuItem{
-		fyne.NewMenuItem("Play", func() { a.playFrom(index) }),
+	actions := []ctxMenuAction{
+		{label: "Play", action: func() { a.playFrom(index) }},
 	}
-	if len(a.playlists) > 0 {
-		plItems := make([]*fyne.MenuItem, 0, len(a.playlists))
-		for i := range a.playlists {
-			pl := a.playlists[i]
-			plItems = append(plItems, fyne.NewMenuItem(pl.Name, func() {
-				a.addTrackToPlaylist(t, pl)
-			}))
+	var addKids []ctxMenuAction
+	for i := range a.playlists {
+		pl := a.playlists[i]
+		if pl.System || pl.ID == a.selectedPL {
+			continue
 		}
-		add := fyne.NewMenuItem("Add to playlist", nil)
-		add.ChildMenu = fyne.NewMenu("", plItems...)
-		items = append(items, fyne.NewMenuItemSeparator(), add)
+		addKids = append(addKids, ctxMenuAction{
+			label:  pl.Name,
+			action: func() { a.addTrackToPlaylist(t, pl) },
+		})
 	}
-	items = append(items, fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Delete", func() { a.removeTrackFromPlaylist(index) }),
-	)
-	widget.ShowPopUpMenuAtPosition(fyne.NewMenu("", items...), a.win.Canvas(), pos)
+	if len(addKids) > 0 {
+		actions = append(actions, ctxMenuAction{
+			label:    "Add to playlist",
+			children: addKids,
+		})
+	}
+	actions = append(actions, ctxMenuAction{
+		label:  "Delete",
+		action: func() { a.removeTrackFromPlaylist(index) },
+	})
+	showCompactMenu(a.win.Canvas(), pos, actions)
 }
 
 func (a *App) addTrackToPlaylist(t model.Track, pl model.Playlist) {
