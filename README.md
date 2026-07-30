@@ -65,7 +65,7 @@ The **first build** after a clean clone (or `go clean -cache`) can take **1–2 
 
 ## Distribution (Linux)
 
-Build release artifacts (stripped binary, tarball, RPM):
+Build release artifacts (stripped binary, tarball, RPM, DEB):
 
 ```bash
 make package
@@ -77,21 +77,25 @@ Or individually:
 make release   # dist/robsong
 make tarball   # dist/robsong-<ver>-linux-amd64.tar.gz
 make rpm       # dist/robsong-<ver>-1.x86_64.rpm  (needs nfpm)
+make deb       # dist/robsong_<ver>-1_amd64.deb   (needs nfpm)
 ```
 
-Install `nfpm` once for RPM builds:
+Install `nfpm` once for RPM/DEB builds:
 
 ```bash
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 ```
 
+GitHub Releases are built automatically when a version tag (e.g. `0.1.0`) matching `FyneApp.toml` is pushed.
+
 | Artifact | Install |
 |----------|---------|
-| Binary | Download and run `./robsong` |
+| Binary | Download and run `./robsong-*-linux-amd64` |
 | Tarball | `sudo tar -C / -xzf robsong-*-linux-amd64.tar.gz` |
 | RPM | `sudo dnf install ./robsong-*-1.x86_64.rpm` |
+| DEB | `sudo apt install ./robsong_*-1_amd64.deb` |
 
-Audio codecs ship inside the binary (no ffmpeg). The RPM declares only common desktop libraries (OpenGL, X11/Wayland, ALSA). User data stays in `~/.config/robsong/`.
+Audio codecs ship inside the binary (no ffmpeg). Packages declare only common desktop libraries (OpenGL, X11/Wayland, ALSA). User data stays in `~/.config/robsong/`.
 
 ## Usage
 
@@ -108,8 +112,8 @@ OGG support is **Vorbis only** (not Opus).
 ```
 cmd/robsong/          application entry point
 assets/               logo, screenshot, and embedded app icon
-packaging/            .desktop entry for Linux packages
-nfpm.yaml             RPM package metadata (nFPM)
+packaging/            .desktop entry and release notes
+nfpm.yaml             RPM/DEB package metadata (nFPM)
 internal/
   audio/              playback (beep) and FFT analyzer
   library/            import and metadata (dhowden/tag)

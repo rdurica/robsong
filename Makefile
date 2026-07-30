@@ -1,5 +1,5 @@
-# Fyne needs CGO + OpenGL/ALSA. On Fedora without libXxf86vm-devel,
-# we provide a local linker stub pointing at the runtime .so.
+# Fyne needs CGO + OpenGL/ALSA. On hosts without a linkable
+# libXxf86vm.so (only .so.1), provide a local linker stub.
 LINK_DIR := $(CURDIR)/.link
 export CGO_LDFLAGS := -L$(LINK_DIR)
 
@@ -10,19 +10,25 @@ RELEASE_BIN := $(DIST)/robsong
 TARBALL := $(DIST)/robsong-$(VERSION)-linux-$(ARCH).tar.gz
 NFPM ?= $(shell command -v nfpm 2>/dev/null || echo "$(shell go env GOPATH)/bin/nfpm")
 
-.PHONY: all build run clean stub deps test release tarball rpm package
+.PHONY: all build run clean stub deps test release tarball rpm deb package
 
 all: build
 
 stub:
 	@mkdir -p $(LINK_DIR)
 	@if [ ! -e $(LINK_DIR)/libXxf86vm.so ]; then \
-		if [ -e /usr/lib64/libXxf86vm.so ]; then \
-			ln -sfn /usr/lib64/libXxf86vm.so $(LINK_DIR)/libXxf86vm.so; \
-		elif [ -e /usr/lib64/libXxf86vm.so.1 ]; then \
-			ln -sfn /usr/lib64/libXxf86vm.so.1 $(LINK_DIR)/libXxf86vm.so; \
-		else \
-			echo "Missing libXxf86vm — install: sudo dnf install -y libXxf86vm-devel"; \
+		for candidate in \
+			/usr/lib64/libXxf86vm.so \
+			/usr/lib64/libXxf86vm.so.1 \
+			/usr/lib/x86_64-linux-gnu/libXxf86vm.so \
+			/usr/lib/x86_64-linux-gnu/libXxf86vm.so.1; do \
+			if [ -e "$$candidate" ]; then \
+				ln -sfn "$$candidate" $(LINK_DIR)/libXxf86vm.so; \
+				break; \
+			fi; \
+		done; \
+		if [ ! -e $(LINK_DIR)/libXxf86vm.so ]; then \
+			echo "Missing libXxf86vm — install libXxf86vm-devel (Fedora) or libxxf86vm-dev (Debian/Ubuntu)"; \
 			exit 1; \
 		fi; \
 	fi
@@ -69,10 +75,21 @@ rpm: release
 	VERSION=$(VERSION) $(NFPM) package --packager rpm --config nfpm.yaml --target $(DIST)/
 	@echo "OK → $(DIST)/robsong-$(VERSION)-1.x86_64.rpm"
 
+# Debian/Ubuntu DEB via nFPM.
+deb: release
+	@if [ ! -x "$(NFPM)" ]; then \
+		echo "nfpm not found — install: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest"; \
+		exit 1; \
+	fi
+	VERSION=$(VERSION) $(NFPM) package --packager deb --config nfpm.yaml --target $(DIST)/
+	@echo "OK → $(DIST)/robsong_$(VERSION)-1_amd64.deb"
+
 # Build all distribution artifacts.
-package: release tarball rpm
+package: release tarball rpm deb
 	@echo "Artifacts in $(DIST)/:"
-	@ls -lh $(DIST)/robsong $(TARBALL) $(DIST)/robsong-$(VERSION)-1.*.rpm 2>/dev/null || true
+	@ls -lh $(DIST)/robsong $(TARBALL) \
+		$(DIST)/robsong-$(VERSION)-1.*.rpm \
+		$(DIST)/robsong_$(VERSION)-1_*.deb 2>/dev/null || true
 
 clean:
 	rm -f robsong

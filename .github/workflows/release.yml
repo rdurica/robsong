@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags: ["*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Fyne / CGO dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc \
+            pkg-config \
+            libgl1-mesa-dev \
+            xorg-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libasound2-dev
+
+      - name: Install nFPM
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+      - name: Verify tag matches FyneApp.toml
+        id: ver
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          APP_VER="$(sed -n 's/^Version = "\(.*\)"/\1/p' FyneApp.toml)"
+          if [ "$TAG" != "$APP_VER" ]; then
+            echo "Tag '$TAG' does not match FyneApp.toml Version '$APP_VER'"
+            exit 1
+          fi
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          NOTES="packaging/release-notes/${TAG}.md"
+          if [ ! -f "$NOTES" ]; then
+            echo "Missing release notes: $NOTES"
+            exit 1
+          fi
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - name: Build packages
+        run: make package
+
+      - name: Prepare release assets
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          mv "dist/robsong" "dist/robsong-${VERSION}-linux-amd64"
+          ls -lh dist/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          NOTES="${{ steps.ver.outputs.notes }}"
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file "$NOTES" \
+            "dist/robsong-${VERSION}-linux-amd64" \
+            "dist/robsong-${VERSION}-linux-amd64.tar.gz" \
+            "dist/robsong-${VERSION}-1.x86_64.rpm" \
+            "dist/robsong_${VERSION}-1_amd64.deb"
