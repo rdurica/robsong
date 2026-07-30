@@ -12,24 +12,24 @@ import (
 )
 
 const (
-	marqueeSpeedPx   = float32(40) // pixels per second
-	marqueePause     = 1500 * time.Millisecond
-	marqueeTick      = 30 * time.Millisecond
-	marqueeEndGap    = float32(48) // blank gap before looping
+	marqueeSpeedPx = float32(40) // pixels per second
+	marqueePause   = 1500 * time.Millisecond
+	marqueeTick    = 30 * time.Millisecond
+	marqueeEndGap  = float32(48) // blank gap before looping
 )
 
 // MarqueeTitle scrolls long now-playing text inside a clipped viewport.
 type MarqueeTitle struct {
 	widget.BaseWidget
 
-	text    *canvas.Text
-	clip    *container.Clip
-	mu      sync.Mutex
-	offset  float32
-	phase   marqueePhase
+	text      *canvas.Text
+	clip      *container.Clip
+	mu        sync.Mutex
+	offset    float32
+	phase     marqueePhase
 	holdUntil time.Time
-	stop    chan struct{}
-	started bool
+	stop      chan struct{}
+	started   bool
 }
 
 type marqueePhase int

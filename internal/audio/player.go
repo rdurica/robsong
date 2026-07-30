@@ -20,7 +20,7 @@ import (
 const (
 	sampleRate      = beep.SampleRate(44100)
 	bufferSize      = time.Second / 20 // ~50ms — keeps volume changes responsive while dragging
-	resampleQuality = 16              // higher quality for music (1–64)
+	resampleQuality = 16               // higher quality for music (1–64)
 )
 
 // Snapshot is a lock-light view of playback state for UI updates.

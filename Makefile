@@ -10,7 +10,7 @@ RELEASE_BIN := $(DIST)/robsong
 TARBALL := $(DIST)/robsong-$(VERSION)-linux-$(ARCH).tar.gz
 NFPM ?= $(shell command -v nfpm 2>/dev/null || echo "$(shell go env GOPATH)/bin/nfpm")
 
-.PHONY: all build run clean stub deps release tarball rpm package
+.PHONY: all build run clean stub deps test release tarball rpm package
 
 all: build
 
@@ -34,6 +34,10 @@ build: stub
 
 run: build
 	./robsong
+
+test:
+	go vet ./...
+	go test ./...
 
 # Stripped release binary for distribution.
 release: stub

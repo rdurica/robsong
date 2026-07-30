@@ -55,6 +55,12 @@ make build
 ./robsong
 ```
 
+Run checks locally (same as CI):
+
+```bash
+make test
+```
+
 The **first build** after a clean clone (or `go clean -cache`) can take **1–2 minutes** while CGO compiles Fyne/OpenGL. Later builds are much faster.
 
 ## Distribution (Linux)
