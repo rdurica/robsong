@@ -13,21 +13,25 @@ type PlayerTheme struct{}
 var _ fyne.Theme = (*PlayerTheme)(nil)
 
 var (
-	colorBg       = color.NRGBA{R: 0xfa, G: 0xfb, B: 0xfc, A: 0xff}
-	colorSurface  = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
-	colorPanel    = color.NRGBA{R: 0xf0, G: 0xf2, B: 0xf5, A: 0xff}
-	colorHover    = color.NRGBA{R: 0xe6, G: 0xea, B: 0xef, A: 0xff}
-	colorAccent   = color.NRGBA{R: 0x5b, G: 0x9b, B: 0xe6, A: 0xff}
-	colorAccentDk = color.NRGBA{R: 0x4a, G: 0x86, B: 0xcc, A: 0xff}
-	colorText     = color.NRGBA{R: 0x1c, G: 0x22, B: 0x2c, A: 0xff}
-	colorMuted    = color.NRGBA{R: 0x7a, G: 0x84, B: 0x93, A: 0xff}
-	colorSep      = color.NRGBA{R: 0xea, G: 0xed, B: 0xf1, A: 0xff}
-	colorInput    = color.NRGBA{R: 0xf4, G: 0xf6, B: 0xf8, A: 0xff} // light fill for entries + slider track
-	colorScroll   = color.NRGBA{R: 0xd0, G: 0xd5, B: 0xdc, A: 0xff}
-	colorDisabled = color.NRGBA{R: 0xaa, G: 0xb1, B: 0xbb, A: 0xff}
-	colorError    = color.NRGBA{R: 0xd9, G: 0x45, B: 0x4f, A: 0xff}
-	colorSuccess  = color.NRGBA{R: 0x2f, G: 0xa3, B: 0x56, A: 0xff}
-	colorWarning  = color.NRGBA{R: 0xc9, G: 0x8a, B: 0x1a, A: 0xff}
+	colorBg      = color.NRGBA{R: 0xfa, G: 0xfb, B: 0xfc, A: 0xff}
+	colorSurface = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+	colorPanel   = color.NRGBA{R: 0xf0, G: 0xf2, B: 0xf5, A: 0xff}
+	// Solid fills (disabled chrome, etc.).
+	colorHoverSolid = color.NRGBA{R: 0xe6, G: 0xea, B: 0xef, A: 0xff}
+	// Fyne blends Hover/Pressed/Focus over widgets — must be translucent overlays.
+	colorHoverOverlay   = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0x14}
+	colorPressedOverlay = color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0x22}
+	colorFocusOverlay   = color.NRGBA{R: 0x5b, G: 0x9b, B: 0xe6, A: 0x40}
+	colorAccent         = color.NRGBA{R: 0x5b, G: 0x9b, B: 0xe6, A: 0xff}
+	colorText           = color.NRGBA{R: 0x1c, G: 0x22, B: 0x2c, A: 0xff}
+	colorMuted          = color.NRGBA{R: 0x7a, G: 0x84, B: 0x93, A: 0xff}
+	colorSep            = color.NRGBA{R: 0xea, G: 0xed, B: 0xf1, A: 0xff}
+	colorInput          = color.NRGBA{R: 0xf4, G: 0xf6, B: 0xf8, A: 0xff} // light fill for entries + slider track
+	colorScroll         = color.NRGBA{R: 0xd0, G: 0xd5, B: 0xdc, A: 0xff}
+	colorDisabled       = color.NRGBA{R: 0xaa, G: 0xb1, B: 0xbb, A: 0xff}
+	colorError          = color.NRGBA{R: 0xd9, G: 0x45, B: 0x4f, A: 0xff}
+	colorSuccess        = color.NRGBA{R: 0x2f, G: 0xa3, B: 0x56, A: 0xff}
+	colorWarning        = color.NRGBA{R: 0xc9, G: 0x8a, B: 0x1a, A: 0xff}
 )
 
 func (t *PlayerTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
@@ -37,19 +41,19 @@ func (t *PlayerTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant)
 	case theme.ColorNameButton:
 		return colorPanel
 	case theme.ColorNameDisabledButton:
-		return colorHover
+		return colorHoverSolid
 	case theme.ColorNameDisabled:
 		return colorDisabled
 	case theme.ColorNameError:
 		return colorError
 	case theme.ColorNameFocus:
-		return colorAccent
+		return colorFocusOverlay
 	case theme.ColorNameForeground:
 		return colorText
 	case theme.ColorNameForegroundOnPrimary:
 		return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
 	case theme.ColorNameHover:
-		return colorHover
+		return colorHoverOverlay
 	case theme.ColorNameHeaderBackground:
 		return colorSurface
 	case theme.ColorNameInputBackground:
@@ -63,7 +67,7 @@ func (t *PlayerTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant)
 	case theme.ColorNamePlaceHolder:
 		return colorMuted
 	case theme.ColorNamePressed:
-		return colorAccentDk
+		return colorPressedOverlay
 	case theme.ColorNamePrimary:
 		return colorAccent
 	case theme.ColorNameScrollBar:

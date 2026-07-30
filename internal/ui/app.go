@@ -34,11 +34,11 @@ type App struct {
 	queue   *queue.Queue
 	player  *audio.Player
 
-	playlists          []model.Playlist
-	allTracks          []model.Track
-	tracks             []model.Track
-	selectedPL         int64
-	selectedTrack      int
+	playlists            []model.Playlist
+	allTracks            []model.Track
+	tracks               []model.Track
+	selectedPL           int64
+	selectedTrack        int
 	seeking              bool
 	progressUpdating     bool
 	toast                *widget.PopUp
@@ -124,12 +124,13 @@ func (a *App) build() {
 
 	a.playlistList = widget.NewList(
 		func() int { return len(a.playlists) },
-		func() fyne.CanvasObject { return widget.NewLabel("playlist") },
+		func() fyne.CanvasObject { return newPlaylistRow(a) },
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
+			row := obj.(*playlistRow)
 			if id < 0 || id >= len(a.playlists) {
 				return
 			}
-			obj.(*widget.Label).SetText(a.playlists[id].Name)
+			row.Update(int(id), a.playlists[id].Name)
 		},
 	)
 	a.playlistList.OnSelected = func(id widget.ListItemID) {
@@ -572,7 +573,18 @@ func (a *App) promptNewPlaylist() {
 			return
 		}
 		a.reloadPlaylists()
-		a.selectPlaylist(p.ID)
+		libID, err := a.store.LibraryID()
+		if err != nil {
+			a.setStatus("Created playlist: " + p.Name)
+			return
+		}
+		a.selectPlaylist(libID)
+		for i := range a.playlists {
+			if a.playlists[i].ID == libID {
+				a.playlistList.Select(i)
+				break
+			}
+		}
 		if !a.playlistPanelVisible {
 			a.togglePlaylists()
 		}
@@ -642,7 +654,18 @@ func (a *App) deleteSelectedPlaylist() {
 		a.setStatus("Cannot delete the Library playlist")
 		return
 	}
-	d := dialog.NewConfirm("Delete playlist", "Delete \""+pl.Name+"\"?", func(ok bool) {
+	msgStyle := widget.RichTextStyle{Inline: true, Alignment: fyne.TextAlignCenter}
+	nameStyle := widget.RichTextStyle{
+		Inline: true, Alignment: fyne.TextAlignCenter,
+		TextStyle: fyne.TextStyle{Bold: true},
+	}
+	msg := widget.NewRichText(
+		&widget.TextSegment{Text: "Are you sure you want to delete playlist ", Style: msgStyle},
+		&widget.TextSegment{Text: "\"" + pl.Name + "\"", Style: nameStyle},
+		&widget.TextSegment{Text: "?", Style: msgStyle},
+	)
+	msg.Wrapping = fyne.TextWrapWord
+	d := dialog.NewCustomConfirm("", "Delete", "Cancel", msg, func(ok bool) {
 		if !ok {
 			return
 		}
@@ -656,14 +679,35 @@ func (a *App) deleteSelectedPlaylist() {
 			a.playlistList.Select(0)
 		}
 	}, a.win)
+	d.SetConfirmImportance(widget.DangerImportance)
 	d.Show()
+	stripDialogTitle(a.win.Canvas())
 	padTopModal(a.win.Canvas())
+}
+
+// showPlaylistContextMenu shows right-click Rename/Delete for a user playlist.
+func (a *App) showPlaylistContextMenu(index int, pos fyne.Position) {
+	if index < 0 || index >= len(a.playlists) {
+		return
+	}
+	pl := a.playlists[index]
+	if pl.System {
+		return
+	}
+	showCompactMenu(a.win.Canvas(), pos, []ctxMenuAction{
+		{label: "Rename", action: a.promptRenamePlaylist},
+		{label: "Delete", action: a.deleteSelectedPlaylist, danger: true},
+	})
 }
 
 // showTrackContextMenu shows right-click actions for a track.
 func (a *App) showTrackContextMenu(index int, t model.Track, pos fyne.Position) {
 	actions := []ctxMenuAction{
-		{label: "Play", action: func() { a.playFrom(index) }},
+		{
+			label:  "Play",
+			icon:   theme.MediaPlayIcon(),
+			action: func() { a.playFrom(index) },
+		},
 	}
 	var addKids []ctxMenuAction
 	for i := range a.playlists {
@@ -684,6 +728,7 @@ func (a *App) showTrackContextMenu(index int, t model.Track, pos fyne.Position) 
 	}
 	actions = append(actions, ctxMenuAction{
 		label:  "Delete",
+		danger: true,
 		action: func() { a.removeTrackFromPlaylist(index) },
 	})
 	showCompactMenu(a.win.Canvas(), pos, actions)
@@ -727,12 +772,11 @@ func (a *App) importFolder() {
 	padTopModal(a.win.Canvas())
 }
 
-// padTopModal insets the topmost modal popup so footer buttons aren't flush to the edges.
-func padTopModal(c fyne.Canvas) {
-	const edge = float32(16)
+// modalPopUpContent returns the PopUp content of the topmost canvas overlay, if any.
+func modalPopUpContent(c fyne.Canvas) *widget.PopUp {
 	top := c.Overlays().Top()
 	if top == nil {
-		return
+		return nil
 	}
 	rv := reflect.ValueOf(top)
 	if rv.Kind() == reflect.Ptr {
@@ -740,10 +784,32 @@ func padTopModal(c fyne.Canvas) {
 	}
 	field := rv.FieldByName("Content")
 	if !field.IsValid() || !field.CanInterface() {
+		return nil
+	}
+	pop, _ := field.Interface().(*widget.PopUp)
+	return pop
+}
+
+// stripDialogTitle removes the Fyne dialog title row so body text isn't pushed down by an empty header.
+func stripDialogTitle(c fyne.Canvas) {
+	pop := modalPopUpContent(c)
+	if pop == nil {
 		return
 	}
-	pop, ok := field.Interface().(*widget.PopUp)
-	if !ok || pop.Content == nil {
+	box, ok := pop.Content.(*fyne.Container)
+	if !ok || len(box.Objects) < 5 {
+		return
+	}
+	// dialogLayout order: icon, background, content, buttons, title
+	box.Objects[4] = layout.NewSpacer()
+	pop.Refresh()
+}
+
+// padTopModal insets the topmost modal popup so footer buttons aren't flush to the edges.
+func padTopModal(c fyne.Canvas) {
+	const edge = float32(16)
+	pop := modalPopUpContent(c)
+	if pop == nil || pop.Content == nil {
 		return
 	}
 	pop.Content = container.New(
@@ -857,6 +923,53 @@ func formatDur(d time.Duration) string {
 	}
 	total := int(d.Seconds())
 	return fmt.Sprintf("%d:%02d", total/60, total%60)
+}
+
+// playlistRow is a sidebar playlist item with right-click Rename/Delete.
+type playlistRow struct {
+	widget.BaseWidget
+	app   *App
+	index int
+	label *widget.Label
+}
+
+func newPlaylistRow(a *App) *playlistRow {
+	r := &playlistRow{
+		app:   a,
+		label: widget.NewLabel("playlist"),
+	}
+	r.label.Truncation = fyne.TextTruncateEllipsis
+	r.ExtendBaseWidget(r)
+	return r
+}
+
+func (r *playlistRow) Update(index int, name string) {
+	r.index = index
+	r.label.SetText(name)
+}
+
+func (r *playlistRow) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(container.NewVBox(
+		layout.NewSpacer(), r.label, layout.NewSpacer(),
+	))
+}
+
+func (r *playlistRow) MinSize() fyne.Size {
+	return fyne.NewSize(80, 28)
+}
+
+func (r *playlistRow) Tapped(*fyne.PointEvent) {
+	if r.index >= 0 {
+		r.app.playlistList.Select(r.index)
+	}
+}
+
+func (r *playlistRow) TappedSecondary(e *fyne.PointEvent) {
+	if r.index < 0 || r.index >= len(r.app.playlists) {
+		return
+	}
+	r.app.playlistList.Select(r.index)
+	r.app.showPlaylistContextMenu(r.index, e.AbsolutePosition)
 }
 
 // trackRow is a dense list row with double-click play and drag-to-reorder.

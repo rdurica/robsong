@@ -12,18 +12,22 @@ import (
 )
 
 const (
-	ctxMenuPadX   = float32(12)
-	ctxMenuPadY   = float32(6)
-	ctxMenuRowH   = float32(28)
-	ctxMenuRadius = float32(8)
-	ctxMenuMinW   = float32(160)
-	ctxMenuArrowW = float32(14)
+	ctxMenuPadX    = float32(12)
+	ctxMenuPadY    = float32(6)
+	ctxMenuRowH    = float32(28)
+	ctxMenuRadius  = float32(8)
+	ctxMenuMinW    = float32(160)
+	ctxMenuArrowW  = float32(14)
+	ctxMenuIconW   = float32(14)
+	ctxMenuIconGap = float32(8)
 )
 
 type ctxMenuAction struct {
 	label    string
 	action   func()
 	children []ctxMenuAction
+	danger   bool // Error-colored label (destructive actions)
+	icon     fyne.Resource
 }
 
 // showCompactMenu shows a tight right-click menu as one overlay (single outside-click dismisses all).
@@ -42,7 +46,7 @@ func showCompactMenu(c fyne.Canvas, pos fyne.Position, actions []ctxMenuAction) 
 	for _, a := range actions {
 		act := a
 		hasKids := len(act.children) > 0
-		row := newCtxMenuRow(act.label, hasKids, func() {
+		row := newCtxMenuRow(act.label, hasKids, act.danger, act.icon, func() {
 			if hasKids {
 				return
 			}
@@ -89,7 +93,7 @@ func (l *ctxMenuLayer) showSub(anchor *ctxMenuRow, children []ctxMenuAction) {
 	rows := make([]fyne.CanvasObject, 0, len(children))
 	for _, a := range children {
 		act := a
-		rows = append(rows, newCtxMenuRow(act.label, false, func() {
+		rows = append(rows, newCtxMenuRow(act.label, false, act.danger, act.icon, func() {
 			l.dismiss()
 			if act.action != nil {
 				act.action()
@@ -225,19 +229,24 @@ type ctxMenuRow struct {
 	widget.BaseWidget
 	label   string
 	expand  bool
+	danger  bool
+	icon    fyne.Resource
 	onTap   func()
 	onHover func()
 	hovered bool
 }
 
-func newCtxMenuRow(label string, expand bool, onTap func()) *ctxMenuRow {
-	r := &ctxMenuRow{label: label, expand: expand, onTap: onTap}
+func newCtxMenuRow(label string, expand, danger bool, icon fyne.Resource, onTap func()) *ctxMenuRow {
+	r := &ctxMenuRow{label: label, expand: expand, danger: danger, icon: icon, onTap: onTap}
 	r.ExtendBaseWidget(r)
 	return r
 }
 
 func (r *ctxMenuRow) MinSize() fyne.Size {
 	w := fyne.MeasureText(r.label, theme.Size(theme.SizeNameText), fyne.TextStyle{}).Width + 2*ctxMenuPadX
+	if r.icon != nil {
+		w += ctxMenuIconW + ctxMenuIconGap
+	}
 	if r.expand {
 		w += ctxMenuArrowW + ctxMenuPadX/2
 	}
@@ -272,10 +281,17 @@ func (r *ctxMenuRow) MouseOut() {
 
 func (r *ctxMenuRow) MouseMoved(*desktop.MouseEvent) {}
 
+func (r *ctxMenuRow) labelColor() color.Color {
+	if r.danger {
+		return theme.Color(theme.ColorNameError)
+	}
+	return theme.Color(theme.ColorNameForeground)
+}
+
 func (r *ctxMenuRow) CreateRenderer() fyne.WidgetRenderer {
 	bg := canvas.NewRectangle(color.Transparent)
 	bg.CornerRadius = 4
-	text := canvas.NewText(r.label, theme.Color(theme.ColorNameForeground))
+	text := canvas.NewText(r.label, r.labelColor())
 	text.TextSize = theme.Size(theme.SizeNameText)
 	arrow := canvas.NewText("›", theme.Color(theme.ColorNamePlaceHolder))
 	arrow.TextSize = theme.Size(theme.SizeNameText) + 2
@@ -283,18 +299,26 @@ func (r *ctxMenuRow) CreateRenderer() fyne.WidgetRenderer {
 	if !r.expand {
 		arrow.Hide()
 	}
+	icon := canvas.NewImageFromResource(nil)
+	icon.FillMode = canvas.ImageFillContain
+	icon.SetMinSize(fyne.NewSquareSize(ctxMenuIconW))
+	if r.icon == nil {
+		icon.Hide()
+	}
 	return &ctxMenuRowRenderer{
 		row:     r,
 		bg:      bg,
+		icon:    icon,
 		text:    text,
 		arrow:   arrow,
-		objects: []fyne.CanvasObject{bg, text, arrow},
+		objects: []fyne.CanvasObject{bg, icon, text, arrow},
 	}
 }
 
 type ctxMenuRowRenderer struct {
 	row     *ctxMenuRow
 	bg      *canvas.Rectangle
+	icon    *canvas.Image
 	text    *canvas.Text
 	arrow   *canvas.Text
 	objects []fyne.CanvasObject
@@ -306,6 +330,12 @@ func (r *ctxMenuRowRenderer) Layout(size fyne.Size) {
 	r.bg.Resize(fyne.NewSize(size.Width-4, size.Height-2))
 	r.bg.Move(fyne.NewPos(2, 1))
 	ts := r.text.MinSize()
+	textX := ctxMenuPadX
+	if r.row.icon != nil {
+		r.icon.Resize(fyne.NewSquareSize(ctxMenuIconW))
+		r.icon.Move(fyne.NewPos(ctxMenuPadX, (size.Height-ctxMenuIconW)/2))
+		textX = ctxMenuPadX + ctxMenuIconW + ctxMenuIconGap
+	}
 	right := size.Width - ctxMenuPadX
 	if r.row.expand {
 		as := r.arrow.MinSize()
@@ -313,8 +343,8 @@ func (r *ctxMenuRowRenderer) Layout(size fyne.Size) {
 		r.arrow.Move(fyne.NewPos(size.Width-ctxMenuPadX-ctxMenuArrowW, (size.Height-as.Height)/2))
 		right = size.Width - ctxMenuPadX - ctxMenuArrowW - 4
 	}
-	r.text.Move(fyne.NewPos(ctxMenuPadX, (size.Height-ts.Height)/2))
-	r.text.Resize(fyne.NewSize(right-ctxMenuPadX, ts.Height))
+	r.text.Move(fyne.NewPos(textX, (size.Height-ts.Height)/2))
+	r.text.Resize(fyne.NewSize(right-textX, ts.Height))
 }
 
 func (r *ctxMenuRowRenderer) MinSize() fyne.Size {
@@ -327,7 +357,7 @@ func (r *ctxMenuRowRenderer) Objects() []fyne.CanvasObject {
 
 func (r *ctxMenuRowRenderer) Refresh() {
 	r.text.Text = r.row.label
-	r.text.Color = theme.Color(theme.ColorNameForeground)
+	r.text.Color = r.row.labelColor()
 	r.text.TextSize = theme.Size(theme.SizeNameText)
 	r.arrow.Color = theme.Color(theme.ColorNamePlaceHolder)
 	r.arrow.TextSize = theme.Size(theme.SizeNameText) + 2
@@ -335,6 +365,13 @@ func (r *ctxMenuRowRenderer) Refresh() {
 		r.arrow.Show()
 	} else {
 		r.arrow.Hide()
+	}
+	if r.row.icon != nil {
+		r.icon.Resource = theme.NewColoredResource(r.row.icon, theme.ColorNameForeground)
+		r.icon.Show()
+		r.icon.Refresh()
+	} else {
+		r.icon.Hide()
 	}
 	if r.row.hovered {
 		r.bg.FillColor = theme.Color(theme.ColorNameHover)
