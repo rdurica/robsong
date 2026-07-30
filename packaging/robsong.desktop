@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Robsong
+Comment=Lightweight local music player
+Exec=robsong
+Icon=robsong
+Categories=AudioVideo;Audio;Player;
+Terminal=false
+StartupNotify=true

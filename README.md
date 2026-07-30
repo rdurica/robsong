@@ -57,6 +57,36 @@ make build
 
 The **first build** after a clean clone (or `go clean -cache`) can take **1–2 minutes** while CGO compiles Fyne/OpenGL. Later builds are much faster.
 
+## Distribution (Linux)
+
+Build release artifacts (stripped binary, tarball, RPM):
+
+```bash
+make package
+```
+
+Or individually:
+
+```bash
+make release   # dist/robsong
+make tarball   # dist/robsong-<ver>-linux-amd64.tar.gz
+make rpm       # dist/robsong-<ver>-1.x86_64.rpm  (needs nfpm)
+```
+
+Install `nfpm` once for RPM builds:
+
+```bash
+go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+```
+
+| Artifact | Install |
+|----------|---------|
+| Binary | Download and run `./robsong` |
+| Tarball | `sudo tar -C / -xzf robsong-*-linux-amd64.tar.gz` |
+| RPM | `sudo dnf install ./robsong-*-1.x86_64.rpm` |
+
+Audio codecs ship inside the binary (no ffmpeg). The RPM declares only common desktop libraries (OpenGL, X11/Wayland, ALSA). User data stays in `~/.config/robsong/`.
+
 ## Usage
 
 1. **Import files** / **Import folder** — adds supported tracks to Library (and to the current playlist if one is selected).
@@ -72,6 +102,8 @@ OGG support is **Vorbis only** (not Opus).
 ```
 cmd/robsong/          application entry point
 assets/               logo, screenshot, and embedded app icon
+packaging/            .desktop entry for Linux packages
+nfpm.yaml             RPM package metadata (nFPM)
 internal/
   audio/              playback (beep) and FFT analyzer
   library/            import and metadata (dhowden/tag)

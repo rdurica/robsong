@@ -1,5 +1,6 @@
 /robsong
 .link/
+dist/
 *.exe
 *.test
 *.out
