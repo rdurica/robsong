@@ -73,5 +73,5 @@ jobs:
             --notes-file "$NOTES" \
             "dist/robsong-${VERSION}-linux-amd64" \
             "dist/robsong-${VERSION}-linux-amd64.tar.gz" \
-            "dist/robsong-${VERSION}-1.x86_64.rpm" \
-            "dist/robsong_${VERSION}-1_amd64.deb"
+            "dist/robsong-${VERSION}.x86_64.rpm" \
+            "dist/robsong_${VERSION}_amd64.deb"

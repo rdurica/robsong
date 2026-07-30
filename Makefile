@@ -72,8 +72,9 @@ rpm: release
 		echo "nfpm not found — install: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest"; \
 		exit 1; \
 	fi
-	VERSION=$(VERSION) $(NFPM) package --packager rpm --config nfpm.yaml --target $(DIST)/
-	@echo "OK → $(DIST)/robsong-$(VERSION)-1.x86_64.rpm"
+	VERSION=$(VERSION) $(NFPM) package --packager rpm --config nfpm.yaml \
+		--target $(DIST)/robsong-$(VERSION).x86_64.rpm
+	@echo "OK → $(DIST)/robsong-$(VERSION).x86_64.rpm"
 
 # Debian/Ubuntu DEB via nFPM.
 deb: release
@@ -81,15 +82,16 @@ deb: release
 		echo "nfpm not found — install: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest"; \
 		exit 1; \
 	fi
-	VERSION=$(VERSION) $(NFPM) package --packager deb --config nfpm.yaml --target $(DIST)/
-	@echo "OK → $(DIST)/robsong_$(VERSION)-1_amd64.deb"
+	VERSION=$(VERSION) $(NFPM) package --packager deb --config nfpm.yaml \
+		--target $(DIST)/robsong_$(VERSION)_amd64.deb
+	@echo "OK → $(DIST)/robsong_$(VERSION)_amd64.deb"
 
 # Build all distribution artifacts.
 package: release tarball rpm deb
 	@echo "Artifacts in $(DIST)/:"
 	@ls -lh $(DIST)/robsong $(TARBALL) \
-		$(DIST)/robsong-$(VERSION)-1.*.rpm \
-		$(DIST)/robsong_$(VERSION)-1_*.deb 2>/dev/null || true
+		$(DIST)/robsong-$(VERSION).*.rpm \
+		$(DIST)/robsong_$(VERSION)_*.deb 2>/dev/null || true
 
 clean:
 	rm -f robsong

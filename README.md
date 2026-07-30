@@ -76,8 +76,8 @@ Or individually:
 ```bash
 make release   # dist/robsong
 make tarball   # dist/robsong-<ver>-linux-amd64.tar.gz
-make rpm       # dist/robsong-<ver>-1.x86_64.rpm  (needs nfpm)
-make deb       # dist/robsong_<ver>-1_amd64.deb   (needs nfpm)
+make rpm       # dist/robsong-<ver>.x86_64.rpm  (needs nfpm)
+make deb       # dist/robsong_<ver>_amd64.deb   (needs nfpm)
 ```
 
 Install `nfpm` once for RPM/DEB builds:
@@ -92,8 +92,8 @@ GitHub Releases are built automatically when a version tag (e.g. `0.1.0`) matchi
 |----------|---------|
 | Binary | Download and run `./robsong-*-linux-amd64` |
 | Tarball | `sudo tar -C / -xzf robsong-*-linux-amd64.tar.gz` |
-| RPM | `sudo dnf install ./robsong-*-1.x86_64.rpm` |
-| DEB | `sudo apt install ./robsong_*-1_amd64.deb` |
+| RPM | `sudo dnf install ./robsong-*.x86_64.rpm` |
+| DEB | `sudo apt install ./robsong_*_amd64.deb` |
 
 Audio codecs ship inside the binary (no ffmpeg). Packages declare only common desktop libraries (OpenGL, X11/Wayland, ALSA). User data stays in `~/.config/robsong/`.
 
