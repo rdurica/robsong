@@ -14,23 +14,32 @@ func (a *App) trackFilterActive() bool {
 	return a.trackSearch != nil && strings.TrimSpace(a.trackSearch.Text) != ""
 }
 
-// applyTrackFilter sets a.tracks from allTracks using the search entry (case-insensitive title match).
+// filterTracksByQuery returns tracks whose title or artist contains q
+// (case-insensitive substring). Empty/whitespace q returns all tracks.
+func filterTracksByQuery(tracks []model.Track, q string) []model.Track {
+	q = strings.ToLower(strings.TrimSpace(q))
+	if q == "" {
+		return tracks
+	}
+	filtered := make([]model.Track, 0, len(tracks))
+	for _, t := range tracks {
+		titleMatch := strings.Contains(strings.ToLower(t.DisplayTitle()), q)
+		artistMatch := strings.Contains(strings.ToLower(t.Artist), q)
+		if titleMatch || artistMatch {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
+}
+
+// applyTrackFilter sets a.tracks from allTracks using the search entry
+// (case-insensitive title or artist match).
 func (a *App) applyTrackFilter() {
 	q := ""
 	if a.trackSearch != nil {
-		q = strings.ToLower(strings.TrimSpace(a.trackSearch.Text))
+		q = a.trackSearch.Text
 	}
-	if q == "" {
-		a.tracks = a.allTracks
-	} else {
-		filtered := make([]model.Track, 0, len(a.allTracks))
-		for _, t := range a.allTracks {
-			if strings.Contains(strings.ToLower(t.DisplayTitle()), q) {
-				filtered = append(filtered, t)
-			}
-		}
-		a.tracks = filtered
-	}
+	a.tracks = filterTracksByQuery(a.allTracks, q)
 	a.trackListHead.SetText(fmt.Sprintf("%s (%d)", a.currentPlaylistName(), len(a.tracks)))
 }
 
