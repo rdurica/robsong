@@ -58,6 +58,7 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 	seek := container.NewBorder(nil, nil, posBox, durBox, a.progress)
 
 	a.muteBtn = iconBtn(theme.VolumeUpIcon(), a.toggleMute)
+	a.syncMuteIcon()
 	volBox := container.NewCenter(container.NewHBox(
 		a.muteBtn,
 		container.New(layout.NewGridWrapLayout(fyne.NewSize(120, playBtnDiameter)), a.volume),
@@ -71,6 +72,38 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 	)
 }
 
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func (a *App) loadVolumePrefs() {
+	v := clamp01(a.fyneApp.Preferences().FloatWithFallback(prefVolume, 0.8))
+	before := clamp01(a.fyneApp.Preferences().FloatWithFallback(prefVolumeBeforeMute, 0.8))
+	if before <= 0 {
+		before = 0.8
+	}
+	a.player.SetVolume(v)
+	a.volumeBeforeMute = before
+	if v <= 0.001 {
+		a.muted = true
+	}
+}
+
+func (a *App) saveVolumePrefs() {
+	a.fyneApp.Preferences().SetFloat(prefVolume, a.player.Volume())
+	before := a.volumeBeforeMute
+	if before <= 0 {
+		before = 0.8
+	}
+	a.fyneApp.Preferences().SetFloat(prefVolumeBeforeMute, before)
+}
+
 func (a *App) toggleMute() {
 	if a.muted {
 		v := a.volumeBeforeMute
@@ -81,6 +114,7 @@ func (a *App) toggleMute() {
 		a.player.SetVolume(v)
 		a.volume.SetValue(v)
 		a.syncMuteIcon()
+		a.saveVolumePrefs()
 		return
 	}
 	if a.volume.Value > 0 {
@@ -90,6 +124,7 @@ func (a *App) toggleMute() {
 	a.player.SetVolume(0)
 	a.volume.SetValue(0)
 	a.syncMuteIcon()
+	a.saveVolumePrefs()
 }
 
 func (a *App) onVolumeChanged(v float64) {
@@ -100,6 +135,7 @@ func (a *App) onVolumeChanged(v float64) {
 	if a.muted && v > 0 {
 		a.muted = false
 		a.syncMuteIcon()
+		a.saveVolumePrefs()
 		return
 	}
 	if !a.muted && v <= 0.001 {
@@ -109,6 +145,7 @@ func (a *App) onVolumeChanged(v float64) {
 		a.muted = true
 		a.syncMuteIcon()
 	}
+	a.saveVolumePrefs()
 }
 
 func (a *App) syncMuteIcon() {

@@ -17,7 +17,11 @@ import (
 	"github.com/rdurica/robsong/internal/queue"
 )
 
-const prefLastPlaylistID = "last_playlist_id"
+const (
+	prefLastPlaylistID   = "last_playlist_id"
+	prefVolume           = "volume"
+	prefVolumeBeforeMute = "volume_before_mute"
+)
 
 // App wires UI, store, queue and player.
 type App struct {
@@ -70,6 +74,7 @@ func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
 	player.SetOnEnded(func() {
 		fyne.Do(func() { a.onTrackEnded() })
 	})
+	a.loadVolumePrefs()
 	a.build()
 	a.reloadPlaylists()
 	if len(a.playlists) > 0 {
