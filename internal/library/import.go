@@ -8,11 +8,6 @@ import (
 	"strings"
 
 	"github.com/dhowden/tag"
-	"github.com/gopxl/beep/v2"
-	"github.com/gopxl/beep/v2/flac"
-	"github.com/gopxl/beep/v2/mp3"
-	"github.com/gopxl/beep/v2/vorbis"
-	"github.com/gopxl/beep/v2/wav"
 	"github.com/rdurica/robsong/internal/audio"
 	"github.com/rdurica/robsong/internal/model"
 )
@@ -105,29 +100,7 @@ func ReadTrack(path string) (model.Track, error) {
 
 // DurationMs probes the audio length in milliseconds.
 func DurationMs(path string) (int64, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	ext := strings.ToLower(filepath.Ext(path))
-	var (
-		streamer beep.StreamSeekCloser
-		format   beep.Format
-	)
-	switch ext {
-	case ".mp3":
-		streamer, format, err = mp3.Decode(f)
-	case ".wav":
-		streamer, format, err = wav.Decode(f)
-	case ".flac":
-		streamer, format, err = flac.Decode(f)
-	case ".ogg":
-		streamer, format, err = vorbis.Decode(f)
-	default:
-		return 0, fmt.Errorf("unsupported")
-	}
+	streamer, format, err := audio.Decode(path)
 	if err != nil {
 		return 0, err
 	}

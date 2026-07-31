@@ -130,18 +130,7 @@ func (s *Store) ListPlaylists() ([]model.Playlist, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var out []model.Playlist
-	for rows.Next() {
-		var p model.Playlist
-		var system int
-		if err := rows.Scan(&p.ID, &p.Name, &p.CreatedAt, &system); err != nil {
-			return nil, err
-		}
-		p.System = system == 1
-		out = append(out, p)
-	}
-	return out, rows.Err()
+	return scanPlaylists(rows)
 }
 
 // PlaylistsContaining returns playlists that include a track with the given path.
@@ -157,7 +146,10 @@ func (s *Store) PlaylistsContaining(path string) ([]model.Playlist, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanPlaylists(rows)
+}
 
+func scanPlaylists(rows *sql.Rows) ([]model.Playlist, error) {
 	var out []model.Playlist
 	for rows.Next() {
 		var p model.Playlist
