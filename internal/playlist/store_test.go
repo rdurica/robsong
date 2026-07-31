@@ -62,6 +62,27 @@ func TestLibrarySeedAndTracks(t *testing.T) {
 		t.Fatalf("fav=%+v", fav)
 	}
 
+	containing, err := store.PlaylistsContaining("/music/a.mp3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(containing) != 2 {
+		t.Fatalf("PlaylistsContaining got %d playlists: %+v", len(containing), containing)
+	}
+	if containing[0].Name != "Library" || !containing[0].System {
+		t.Fatalf("expected Library first: %+v", containing[0])
+	}
+	if containing[1].Name != "Favorites" {
+		t.Fatalf("expected Favorites second: %+v", containing[1])
+	}
+	none, err := store.PlaylistsContaining("/music/missing.mp3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("expected no playlists, got %+v", none)
+	}
+
 	if err := store.DeletePlaylist(libID); err == nil {
 		t.Fatal("expected error deleting system playlist")
 	}

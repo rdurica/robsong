@@ -144,6 +144,33 @@ func (s *Store) ListPlaylists() ([]model.Playlist, error) {
 	return out, rows.Err()
 }
 
+// PlaylistsContaining returns playlists that include a track with the given path.
+func (s *Store) PlaylistsContaining(path string) ([]model.Playlist, error) {
+	rows, err := s.db.Query(`
+		SELECT p.id, p.name, p.created_at, p.system
+		FROM playlists p
+		JOIN playlist_tracks pt ON pt.playlist_id = p.id
+		WHERE pt.path = ?
+		ORDER BY p.system DESC, p.name COLLATE NOCASE ASC
+	`, path)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []model.Playlist
+	for rows.Next() {
+		var p model.Playlist
+		var system int
+		if err := rows.Scan(&p.ID, &p.Name, &p.CreatedAt, &system); err != nil {
+			return nil, err
+		}
+		p.System = system == 1
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // LibraryID returns the id of the system Library playlist.
 func (s *Store) LibraryID() (int64, error) {
 	var id int64
