@@ -28,6 +28,20 @@
   <img src="assets/player.png" alt="Robsong player screenshot" width="720" />
 </p>
 
+## Install
+
+Prebuilt Linux (amd64) packages are on
+[GitHub Releases](https://github.com/rdurica/robsong/releases/latest):
+
+| Artifact | Install |
+|----------|---------|
+| Binary | Download, `chmod +x`, run `./robsong-*-linux-amd64` |
+| Tarball | `sudo tar -C / -xzf robsong-*-linux-amd64.tar.gz` |
+| RPM | `sudo dnf install ./robsong-*.x86_64.rpm` |
+| DEB | `sudo apt install ./robsong_*_amd64.deb` |
+
+Audio codecs ship inside the binary (no ffmpeg). Packages declare only common desktop libraries (OpenGL, X11/Wayland, ALSA). User data stays in `~/.config/robsong/`.
+
 ## Requirements (Fedora)
 
 Install system dependencies (or run `make deps`):
@@ -86,16 +100,7 @@ Install `nfpm` once for RPM/DEB builds:
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 ```
 
-GitHub Releases are built automatically when a version tag (e.g. `0.1.0`) matching `FyneApp.toml` is pushed.
-
-| Artifact | Install |
-|----------|---------|
-| Binary | Download and run `./robsong-*-linux-amd64` |
-| Tarball | `sudo tar -C / -xzf robsong-*-linux-amd64.tar.gz` |
-| RPM | `sudo dnf install ./robsong-*.x86_64.rpm` |
-| DEB | `sudo apt install ./robsong_*_amd64.deb` |
-
-Audio codecs ship inside the binary (no ffmpeg). Packages declare only common desktop libraries (OpenGL, X11/Wayland, ALSA). User data stays in `~/.config/robsong/`.
+Prebuilt packages are published on [GitHub Releases](https://github.com/rdurica/robsong/releases/latest) when a version tag (e.g. `0.1.0`) matching `FyneApp.toml` is pushed. See [Install](#install) for how to use them.
 
 ## Usage
 
