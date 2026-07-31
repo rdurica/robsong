@@ -44,7 +44,7 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 	a.volume = widget.NewSlider(0, 1)
 	a.volume.Step = 0.01
 	a.volume.SetValue(a.player.Volume())
-	a.volume.OnChanged = func(v float64) { a.player.SetVolume(v) }
+	a.volume.OnChanged = a.onVolumeChanged
 
 	prev := iconBtn(theme.MediaSkipPreviousIcon(), a.prev)
 	a.playBtn = NewPlayButton(theme.MediaPlayIcon(), a.togglePlay)
@@ -57,8 +57,9 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 	durBox := container.New(layout.NewGridWrapLayout(fyne.NewSize(timeW, 24)), a.durLabel)
 	seek := container.NewBorder(nil, nil, posBox, durBox, a.progress)
 
+	a.muteBtn = iconBtn(theme.VolumeUpIcon(), a.toggleMute)
 	volBox := container.NewCenter(container.NewHBox(
-		widget.NewIcon(theme.VolumeUpIcon()),
+		a.muteBtn,
 		container.New(layout.NewGridWrapLayout(fyne.NewSize(120, playBtnDiameter)), a.volume),
 	))
 	top := container.New(&playerTopLayout{}, a.nowTitle, controls, volBox)
@@ -68,6 +69,57 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 		top,
 		seek,
 	)
+}
+
+func (a *App) toggleMute() {
+	if a.muted {
+		v := a.volumeBeforeMute
+		if v <= 0 {
+			v = 0.8
+		}
+		a.muted = false
+		a.player.SetVolume(v)
+		a.volume.SetValue(v)
+		a.syncMuteIcon()
+		return
+	}
+	if a.volume.Value > 0 {
+		a.volumeBeforeMute = a.volume.Value
+	}
+	a.muted = true
+	a.player.SetVolume(0)
+	a.volume.SetValue(0)
+	a.syncMuteIcon()
+}
+
+func (a *App) onVolumeChanged(v float64) {
+	a.player.SetVolume(v)
+	if v > 0.05 {
+		a.volumeBeforeMute = v
+	}
+	if a.muted && v > 0 {
+		a.muted = false
+		a.syncMuteIcon()
+		return
+	}
+	if !a.muted && v <= 0.001 {
+		if a.volumeBeforeMute <= 0 {
+			a.volumeBeforeMute = 0.8
+		}
+		a.muted = true
+		a.syncMuteIcon()
+	}
+}
+
+func (a *App) syncMuteIcon() {
+	if a.muteBtn == nil {
+		return
+	}
+	if a.muted {
+		a.muteBtn.SetIcon(theme.NewColoredResource(theme.VolumeMuteIcon(), theme.ColorNameError))
+		return
+	}
+	a.muteBtn.SetIcon(theme.VolumeUpIcon())
 }
 
 func (a *App) startProgressTicker() {

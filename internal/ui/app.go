@@ -43,6 +43,9 @@ type App struct {
 	durLabel             *widget.Label
 	progress             *widget.Slider
 	volume               *widget.Slider
+	muteBtn              *widget.Button
+	muted                bool
+	volumeBeforeMute     float64
 	playBtn              *PlayButton
 	trackListHead        *widget.Label
 	trackSearch          *searchEntry
