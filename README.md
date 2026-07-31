@@ -14,6 +14,11 @@
   <img alt="Platform" src="https://img.shields.io/badge/platform-Linux-lightgrey" />
 </p>
 
+## Goal
+
+Build a simple, minimalist music player with a clean modern design for Linux.
+No extras — just play your songs.
+
 ## Features
 
 - Play local audio: **MP3**, **FLAC**, **WAV**, **OGG (Vorbis)**
