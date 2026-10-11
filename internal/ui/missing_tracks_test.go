@@ -450,3 +450,93 @@ func TestFreshAppHasNothingMissing(t *testing.T) {
 		}
 	}
 }
+
+// titledGhost returns a missing track with an explicit Title.
+func (ta *testApp) titledGhost(file, title string) model.Track {
+	g := ta.ghost(file)
+	g.Title = title
+	return g
+}
+
+func TestPlayFromSkipSetsSingleTrackStatus(t *testing.T) {
+	ta := newTestApp(t)
+	g, b := ta.titledGhost("g.mp3", "Ghost"), ta.existing(t, "b.mp3")
+	ta.fill(t, ta.libraryID(t), g, b)
+	ta.player.errs[g.Path] = notExist(g.Path)
+
+	ta.playFrom(0)
+
+	if want := `Track not found: "Ghost"`; ta.status != want {
+		t.Errorf("status = %q, want %q", ta.status, want)
+	}
+}
+
+func TestNextSkippingTwoSetsPluralStatus(t *testing.T) {
+	ta := newTestApp(t)
+	a, c := ta.existing(t, "a.mp3"), ta.existing(t, "c.mp3")
+	g1, g2 := ta.titledGhost("g1.mp3", "Ghost1"), ta.titledGhost("g2.mp3", "Ghost2")
+	ta.fill(t, ta.libraryID(t), a, g1, g2, c)
+	ta.player.errs[g1.Path] = notExist(g1.Path)
+	ta.player.errs[g2.Path] = notExist(g2.Path)
+	ta.playFrom(0)
+
+	ta.next()
+
+	if cur, _ := ta.queue.Current(); cur.Path != c.Path {
+		t.Fatalf("current = %q, want c", cur.Path)
+	}
+	if want := "2 tracks not found, skipped"; ta.status != want {
+		t.Errorf("status = %q, want %q", ta.status, want)
+	}
+}
+
+func TestPrevSkipSetsSingleTrackStatus(t *testing.T) {
+	ta := newTestApp(t)
+	a, c := ta.existing(t, "a.mp3"), ta.existing(t, "c.mp3")
+	g := ta.titledGhost("g.mp3", "Ghost")
+	ta.fill(t, ta.libraryID(t), a, g, c)
+	ta.player.errs[g.Path] = notExist(g.Path)
+	ta.playFrom(0)
+	ta.next() // skips g onto c
+	ta.status = ""
+
+	ta.prev()
+
+	if cur, _ := ta.queue.Current(); cur.Path != a.Path {
+		t.Fatalf("current = %q, want a", cur.Path)
+	}
+	if want := `Track not found: "Ghost"`; ta.status != want {
+		t.Errorf("status = %q, want %q", ta.status, want)
+	}
+}
+
+func TestTrackEndedSkipSetsSingleTrackStatus(t *testing.T) {
+	ta := newTestApp(t)
+	a, c := ta.existing(t, "a.mp3"), ta.existing(t, "c.mp3")
+	g := ta.titledGhost("g.mp3", "Ghost")
+	ta.fill(t, ta.libraryID(t), a, g, c)
+	ta.player.errs[g.Path] = notExist(g.Path)
+	ta.playFrom(0)
+
+	ta.onTrackEnded()
+
+	if cur, _ := ta.queue.Current(); cur.Path != c.Path {
+		t.Fatalf("current = %q, want c", cur.Path)
+	}
+	if want := `Track not found: "Ghost"`; ta.status != want {
+		t.Errorf("status = %q, want %q", ta.status, want)
+	}
+}
+
+func TestPlayFromWithoutSkipLeavesStatusEmpty(t *testing.T) {
+	ta := newTestApp(t)
+	a, b := ta.existing(t, "a.mp3"), ta.existing(t, "b.mp3")
+	ta.fill(t, ta.libraryID(t), a, b)
+	ta.status = "stale"
+
+	ta.playFrom(0)
+
+	if ta.status != "" {
+		t.Errorf("status = %q, want empty", ta.status)
+	}
+}
