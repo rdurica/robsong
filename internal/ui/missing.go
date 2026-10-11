@@ -34,12 +34,20 @@ func (a *App) markMissing(path string) {
 // and tries the track step returns next, until one plays or none are left.
 // Returns true when a track started playing.
 func (a *App) playSkippingMissing(t model.Track, step func() (model.Track, bool)) bool {
+	var skipped []model.Track
 	for {
 		err := a.player.Play(t.Path)
 		if err == nil {
 			delete(a.missing, t.Path)
 			a.updateNowPlaying()
 			a.trackList.Refresh()
+			switch len(skipped) {
+			case 0:
+			case 1:
+				a.setStatus(`Track not found: "` + skipped[0].DisplayTitle() + `"`)
+			default:
+				a.setStatus(fmt.Sprintf("%d tracks not found, skipped", len(skipped)))
+			}
 			return true
 		}
 		if !errors.Is(err, os.ErrNotExist) {
@@ -47,6 +55,7 @@ func (a *App) playSkippingMissing(t model.Track, step func() (model.Track, bool)
 			return false
 		}
 		a.markMissing(t.Path)
+		skipped = append(skipped, t)
 		a.trackList.Refresh()
 		var ok bool
 		if t, ok = step(); !ok {
