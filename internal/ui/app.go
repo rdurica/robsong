@@ -12,6 +12,7 @@ import (
 
 	"github.com/rdurica/robsong/assets"
 	"github.com/rdurica/robsong/internal/audio"
+	"github.com/rdurica/robsong/internal/library"
 	"github.com/rdurica/robsong/internal/model"
 	"github.com/rdurica/robsong/internal/playlist"
 	"github.com/rdurica/robsong/internal/queue"
@@ -54,6 +55,7 @@ type App struct {
 	trackListHead        *widget.Label
 	trackSearch          *searchEntry
 	spectrum             *SpectrumViz
+	cover                *coverArt
 	playlistPanel        fyne.CanvasObject
 	playlistsBtn         *widget.Button
 	playlistPanelVisible bool
@@ -70,6 +72,7 @@ func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
 		queue:         queue.New(),
 		player:        player,
 		selectedTrack: -1,
+		cover:         newCoverArt(library.ReadCover),
 	}
 	player.SetOnEnded(func() {
 		fyne.Do(func() { a.onTrackEnded() })
