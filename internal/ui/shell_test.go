@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -503,15 +504,15 @@ func TestMiniVolumePersistsAndSurvivesExpand(t *testing.T) {
 
 	vol.SetValue(0.35)
 
-	if got := e.fa.Preferences().Float("volume"); got != 0.35 {
+	if got := e.fa.Preferences().Float("volume"); math.Abs(got-0.35) > 1e-9 {
 		t.Fatalf("pref volume = %v, want 0.35", got)
 	}
 	e.expand()
 	requireFull(t, e)
-	if got := e.fa.Preferences().Float("volume"); got != 0.35 {
+	if got := e.fa.Preferences().Float("volume"); math.Abs(got-0.35) > 1e-9 {
 		t.Fatalf("pref volume after expand = %v, want 0.35", got)
 	}
-	if got := e.fp.Volume(); got != 0.35 {
+	if got := e.fp.Volume(); math.Abs(got-0.35) > 1e-9 {
 		t.Fatalf("player volume after expand = %v, want 0.35", got)
 	}
 }
@@ -539,5 +540,81 @@ func TestExpandOpensStoreOnceWhenNotYetOpened(t *testing.T) {
 	requireFull(t, e)
 	if e.opens != 1 {
 		t.Fatalf("openStore calls = %d, want 1", e.opens)
+	}
+}
+
+// --- store open failure on full start ---
+
+func TestShowFullReturnsErrorWhenStoreCannotOpen(t *testing.T) {
+	e := newShellEnv(t)
+	e.openErr = errors.New("db is locked")
+
+	err := e.showFull([]model.Track{e.track("a")})
+
+	if err == nil || !strings.Contains(err.Error(), "db is locked") {
+		t.Fatalf("showFull error = %v, want one containing 'db is locked'", err)
+	}
+	if e.full != nil || e.mini != nil {
+		t.Fatal("a window was created although the store failed to open")
+	}
+}
+
+// --- closing the mini window ---
+
+func TestClosingMiniClosesPlayerAndOpenedStore(t *testing.T) {
+	e := newShellEnv(t)
+	e.showMini(e.track("a"))
+	test.Tap(e.mini.addBtn) // opens the store lazily
+	if e.Shell.store == nil {
+		t.Fatal("store not opened by + Library")
+	}
+	st := e.Shell.store
+
+	e.mini.close() // the window's close-intercept handler
+
+	if n := e.fp.closeCount(); n != 1 {
+		t.Fatalf("player Close called %d times, want 1", n)
+	}
+	if _, err := st.LibraryID(); err == nil {
+		t.Fatal("store still usable after closing the mini window")
+	}
+}
+
+func TestClosingMiniWithoutStoreClosesPlayer(t *testing.T) {
+	e := newShellEnv(t)
+	e.showMini(e.track("a"))
+
+	e.mini.close() // the window's close-intercept handler
+
+	if n := e.fp.closeCount(); n != 1 {
+		t.Fatalf("player Close called %d times, want 1", n)
+	}
+	if e.opens != 0 {
+		t.Fatalf("store opened %d times on close", e.opens)
+	}
+}
+
+// --- handleTracks seam (Open expands paths off the UI thread) ---
+
+func TestHandleTracksNonEmptyPathsWithoutTracksToasts(t *testing.T) {
+	e := newShellEnv(t)
+	e.showMini(e.track("a"))
+
+	e.handleTracks(true, nil)
+
+	if !toastShown(t, e.mini.win, "No supported audio file") {
+		t.Fatal("no 'No supported audio file' toast")
+	}
+}
+
+func TestHandleTracksNoPathsInFullKeepsPlayNow(t *testing.T) {
+	e := newShellEnv(t)
+	e.showFull([]model.Track{e.track("a"), e.track("b")})
+
+	e.handleTracks(false, nil)
+
+	requireFull(t, e)
+	if len(e.full.playNow) != 2 {
+		t.Fatalf("Play Now changed: %v", pathsOf(e.full.playNow))
 	}
 }
