@@ -7,15 +7,65 @@ import (
 	"slices"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/rdurica/robsong/internal/model"
 )
 
-// maxRescanListRows is the number of missing tracks shown before the dialog list scrolls.
-const maxRescanListRows = 10
+const (
+	rescanDialogWidth = 500
+	rescanListHeight  = 260
+)
+
+// denseTheme shrinks paddings so list rows are compact.
+type denseTheme struct{ fyne.Theme }
+
+func (d denseTheme) Size(n fyne.ThemeSizeName) float32 {
+	switch n {
+	case theme.SizeNamePadding:
+		return 0
+	case theme.SizeNameInnerPadding:
+		return 3
+	}
+	return d.Theme.Size(n)
+}
+
+// rescanHeader returns the centred, counted heading of the rescan dialog.
+func rescanHeader(n int) string {
+	if n == 1 {
+		return "1 track no longer exists on disk."
+	}
+	return fmt.Sprintf("%d tracks no longer exist on disk.", n)
+}
+
+// newRescanList builds the framed, fixed-height, scrollable list of missing tracks.
+func newRescanList(missing []model.Track) fyne.CanvasObject {
+	rows := make([]fyne.CanvasObject, 0, 2*len(missing))
+	for i, t := range missing {
+		line := t.DisplayTitle()
+		if art := t.DisplayArtist(); art != "" {
+			line += " — " + art
+		}
+		l := widget.NewLabel(line)
+		l.Truncation = fyne.TextTruncateEllipsis
+		if i > 0 {
+			rows = append(rows, widget.NewSeparator())
+		}
+		rows = append(rows, l)
+	}
+	dense := container.NewThemeOverride(container.NewVBox(rows...), denseTheme{fyne.CurrentApp().Settings().Theme()})
+	sc := container.NewVScroll(dense)
+	sc.SetMinSize(fyne.NewSize(0, rescanListHeight))
+	frame := canvas.NewRectangle(theme.Color(theme.ColorNameInputBackground))
+	frame.StrokeColor = theme.Color(theme.ColorNameSeparator)
+	frame.StrokeWidth = 1
+	frame.CornerRadius = theme.InputRadiusSize()
+	return container.NewStack(frame, container.NewPadded(sc))
+}
 
 // isMissing reports whether a play attempt found the file gone.
 func (a *App) isMissing(path string) bool {
@@ -86,35 +136,20 @@ func (a *App) rescanSelectedPlaylist() {
 		return
 	}
 	msgStyle := widget.RichTextStyle{Inline: true, Alignment: fyne.TextAlignCenter}
-	head := widget.NewRichText(&widget.TextSegment{
-		Text:  "These tracks no longer exist on disk. Remove them from the playlist?",
-		Style: msgStyle,
-	})
+	head := widget.NewRichText(
+		&widget.TextSegment{Text: rescanHeader(len(missing)), Style: widget.RichTextStyle{Inline: true, Alignment: fyne.TextAlignCenter, TextStyle: fyne.TextStyle{Bold: true}}},
+		&widget.TextSegment{Text: " Remove them from this playlist?", Style: msgStyle},
+	)
 	head.Wrapping = fyne.TextWrapWord
-	rows := make([]fyne.CanvasObject, 0, len(missing))
-	for _, t := range missing {
-		line := t.DisplayTitle()
-		if art := t.DisplayArtist(); art != "" {
-			line += " — " + art
-		}
-		l := widget.NewLabel(line)
-		l.Truncation = fyne.TextTruncateEllipsis
-		rows = append(rows, l)
-	}
-	var list fyne.CanvasObject = container.NewVBox(rows...)
-	if len(rows) > maxRescanListRows {
-		sc := container.NewVScroll(list)
-		sc.SetMinSize(fyne.NewSize(0, rows[0].MinSize().Height*maxRescanListRows))
-		list = sc
-	}
-	d := dialog.NewCustomConfirm("", "Remove", "Cancel", container.NewBorder(head, nil, nil, nil, list), func(ok bool) {
+	list := newRescanList(missing)
+	d := dialog.NewCustomConfirm("", "Remove", "Cancel", container.NewBorder(head, nil, nil, nil, container.NewPadded(list)), func(ok bool) {
 		if ok {
 			a.removeMissingTracks(missing)
 		}
 	}, a.win)
 	d.SetConfirmImportance(widget.DangerImportance)
+	d.Resize(fyne.NewSize(min(rescanDialogWidth, a.win.Canvas().Size().Width-32), d.MinSize().Height))
 	d.Show()
-	d.Resize(fyne.NewSize(480, d.MinSize().Height))
 	stripDialogTitle(a.win.Canvas())
 	padTopModal(a.win.Canvas())
 }
