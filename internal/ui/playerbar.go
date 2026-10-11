@@ -229,8 +229,15 @@ func (a *App) togglePlay() {
 	a.player.TogglePause()
 }
 
+// next moves to the next queued track, or stops at the end of the queue.
 func (a *App) next() {
-	a.advance()
+	if t, ok := a.queue.Next(); ok {
+		a.playSkippingMissing(t, a.queue.Next)
+		return
+	}
+	a.player.Stop()
+	a.updateNowPlaying()
+	a.trackList.Refresh()
 }
 
 func (a *App) prev() {
@@ -246,18 +253,7 @@ func (a *App) prev() {
 }
 
 func (a *App) onTrackEnded() {
-	a.advance()
-}
-
-// advance moves to the next queued track, or stops at the end of the queue.
-func (a *App) advance() {
-	if t, ok := a.queue.Next(); ok {
-		a.playSkippingMissing(t, a.queue.Next)
-		return
-	}
-	a.player.Stop()
-	a.updateNowPlaying()
-	a.trackList.Refresh()
+	a.next()
 }
 
 func (a *App) updateNowPlaying() {
