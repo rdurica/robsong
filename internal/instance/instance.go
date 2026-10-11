@@ -14,7 +14,11 @@ import (
 	"time"
 )
 
-const sockName = "robsong.sock"
+const (
+	sockName = "robsong.sock"
+	// maxMessageBytes bounds what one connection may make the listener buffer.
+	maxMessageBytes = 1 << 20
+)
 
 type message struct {
 	Paths []string `json:"paths"`
@@ -106,7 +110,7 @@ func (ln *listener) serve(onOpen func([]string)) {
 		go func() {
 			defer conn.Close()
 			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-			line, err := bufio.NewReader(conn).ReadBytes('\n')
+			line, err := bufio.NewReader(io.LimitReader(conn, maxMessageBytes)).ReadBytes('\n')
 			if err != nil && len(line) == 0 {
 				return
 			}

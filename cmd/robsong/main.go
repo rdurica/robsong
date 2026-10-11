@@ -33,9 +33,6 @@ func run(args []string) int {
 		},
 	})
 
-	tracks := collectTracks(args)
-	mode := chooseLaunch(len(args) > 0, len(tracks))
-
 	// Hand the request to a running instance before touching audio, DB or UI.
 	abs := make([]string, 0, len(args))
 	for _, a := range args {
@@ -47,6 +44,9 @@ func run(args []string) int {
 	if sent, err := instance.Send(abs); err == nil && sent {
 		return 0
 	}
+
+	tracks := collectTracks(args)
+	mode := chooseLaunch(len(args) > 0, len(tracks))
 
 	fa := app.NewWithID("com.rdurica.robsong")
 	fa.SetIcon(assets.Logo)
