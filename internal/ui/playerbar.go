@@ -202,11 +202,11 @@ func (a *App) playCurrent() {
 	if !ok {
 		return
 	}
+	a.setStatus("") // playSkippingMissing sets its own status when it skips tracks
 	if !a.playSkippingMissing(t, a.queue.Next) {
 		return
 	}
 	a.spectrum.SetActive(true)
-	a.setStatus("")
 }
 
 func (a *App) togglePlay() {
