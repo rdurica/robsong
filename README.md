@@ -117,6 +117,14 @@ Prebuilt packages are published on [GitHub Releases](https://github.com/rdurica/
 
 OGG support is **Vorbis only** (not Opus).
 
+## Open files from the file manager
+
+Robsong registers itself for MP3, FLAC, WAV and OGG files. Right-click an audio file, choose **Open With**, and pick Robsong; to make it the default, open the file's **Properties** and set Robsong as the default application for that type.
+
+- A single file opens a compact mini player with **+ Library** and **Expand** buttons.
+- Several files (or a folder) open the full window with the files in a temporary **Play Now** playlist.
+- If Robsong is already running, new files are sent to that window instead of starting a second copy.
+
 ## Project layout
 
 ```
