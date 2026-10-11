@@ -169,17 +169,22 @@ func (a *App) deleteSelectedPlaylist() {
 	padTopModal(a.win.Canvas())
 }
 
-// showPlaylistContextMenu shows right-click Rename/Delete for a user playlist.
+// playlistMenuActions returns the right-click actions for a playlist.
+func (a *App) playlistMenuActions(pl model.Playlist) []ctxMenuAction {
+	actions := []ctxMenuAction{{label: "Rescan", action: a.rescanSelectedPlaylist}}
+	if pl.System {
+		return actions
+	}
+	return append(actions,
+		ctxMenuAction{label: "Rename", action: a.promptRenamePlaylist},
+		ctxMenuAction{label: "Delete", action: a.deleteSelectedPlaylist, danger: true},
+	)
+}
+
+// showPlaylistContextMenu shows right-click actions for a playlist.
 func (a *App) showPlaylistContextMenu(index int, pos fyne.Position) {
 	if index < 0 || index >= len(a.playlists) {
 		return
 	}
-	pl := a.playlists[index]
-	if pl.System {
-		return
-	}
-	showCompactMenu(a.win.Canvas(), pos, []ctxMenuAction{
-		{label: "Rename", action: a.promptRenamePlaylist},
-		{label: "Delete", action: a.deleteSelectedPlaylist, danger: true},
-	})
+	showCompactMenu(a.win.Canvas(), pos, a.playlistMenuActions(a.playlists[index]))
 }

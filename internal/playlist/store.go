@@ -320,6 +320,57 @@ func (s *Store) RemoveTrackAt(playlistID int64, position int) error {
 	return tx.Commit()
 }
 
+// RemoveTracksByPath removes every track of the playlist whose path is listed
+// and renumbers the remaining positions contiguously from 0 in original order.
+func (s *Store) RemoveTracksByPath(playlistID int64, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, p := range paths {
+		if _, err := tx.Exec(
+			`DELETE FROM playlist_tracks WHERE playlist_id = ? AND path = ?`,
+			playlistID, p,
+		); err != nil {
+			return err
+		}
+	}
+
+	rows, err := tx.Query(
+		`SELECT rowid FROM playlist_tracks WHERE playlist_id = ? ORDER BY position`,
+		playlistID,
+	)
+	if err != nil {
+		return err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	_ = rows.Close()
+
+	for i, id := range ids {
+		if _, err := tx.Exec(`UPDATE playlist_tracks SET position = ? WHERE rowid = ?`, i, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // ReplaceOrder rewrites playlist track positions to match the given order.
 func (s *Store) ReplaceOrder(playlistID int64, tracks []model.Track) error {
 	tx, err := s.db.Begin()

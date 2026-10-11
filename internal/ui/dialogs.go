@@ -61,6 +61,7 @@ func padTopModal(c fyne.Canvas) {
 }
 
 func (a *App) setStatus(msg string) {
+	a.status = msg
 	a.hideToast()
 	if msg == "" {
 		return
