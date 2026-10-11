@@ -67,8 +67,7 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 
 	return container.NewVBox(
 		a.spectrum,
-		top,
-		seek,
+		container.NewBorder(nil, nil, a.cover, nil, container.NewVBox(top, seek)),
 	)
 }
 
@@ -284,6 +283,7 @@ func (a *App) updateNowPlaying() {
 	t, ok := a.queue.Current()
 	if !ok {
 		a.nowTitle.SetText("Nothing playing")
+		a.cover.SetTrack("")
 		return
 	}
 	line := t.DisplayTitle()
@@ -291,4 +291,5 @@ func (a *App) updateNowPlaying() {
 		line += "  —  " + art
 	}
 	a.nowTitle.SetText(line)
+	a.cover.SetTrack(t.Path)
 }
