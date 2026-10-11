@@ -107,12 +107,16 @@ type coverRenderer struct {
 	note  *canvas.Image
 }
 
+// Layout keeps the cover square and centred, even when the player bar
+// gives the widget more height than width (or vice versa).
 func (r *coverRenderer) Layout(s fyne.Size) {
-	r.art.Resize(s)
-	r.art.Move(fyne.NewPos(0, 0))
-	pad := s.Width * 0.2
-	r.note.Resize(fyne.NewSize(s.Width-2*pad, s.Height-2*pad))
-	r.note.Move(fyne.NewPos(pad, pad))
+	side := fyne.Min(s.Width, s.Height)
+	x, y := (s.Width-side)/2, (s.Height-side)/2
+	r.art.Resize(fyne.NewSquareSize(side))
+	r.art.Move(fyne.NewPos(x, y))
+	pad := side * 0.2
+	r.note.Resize(fyne.NewSquareSize(side - 2*pad))
+	r.note.Move(fyne.NewPos(x+pad, y+pad))
 }
 
 func (r *coverRenderer) MinSize() fyne.Size { return fyne.NewSize(coverSize, coverSize) }
