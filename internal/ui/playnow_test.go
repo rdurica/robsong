@@ -210,6 +210,23 @@ func TestTrackContextMenuAddTargetsExcludePlayNow(t *testing.T) {
 	if pnContains(got, playNowName) {
 		t.Errorf("Play Now offered as add target: %v", got)
 	}
+	// Library (the system playlist) is a valid target from Play Now.
+	pls, err := ta.store.ListPlaylists()
+	if err != nil {
+		t.Fatal(err)
+	}
+	libName := ""
+	for _, p := range pls {
+		if p.System {
+			libName = p.Name
+		}
+	}
+	if libName == "" {
+		t.Fatal("no system playlist")
+	}
+	if !pnContains(got, libName) {
+		t.Errorf("Library %q not offered from Play Now: %v", libName, got)
+	}
 	ta.win.Canvas().Overlays().Remove(ta.win.Canvas().Overlays().Top())
 
 	// From a saved playlist while Play Now exists: still excluded.
@@ -227,6 +244,9 @@ func TestTrackContextMenuAddTargetsExcludePlayNow(t *testing.T) {
 	}
 	if !pnContains(got, other.Name) {
 		t.Errorf("target %q missing from %v", other.Name, got)
+	}
+	if pnContains(got, libName) {
+		t.Errorf("Library offered from saved playlist: %v", got)
 	}
 }
 
@@ -316,4 +336,42 @@ func TestPlayNowRescanDialogRemovesMemoryOnly(t *testing.T) {
 
 	pnAssertPlayNow(t, ta, e)
 	pnAssertSnapshot(t, ta, before)
+}
+
+func TestRemovingLastPlayNowTrackRemovesPlayNow(t *testing.T) {
+	t.Run("removeTrackFromPlaylist", func(t *testing.T) {
+		ta := newTestApp(t)
+		ta.setPlayNow([]model.Track{ta.existing(t, "a.mp3")})
+		ta.removeTrackFromPlaylist(0)
+		if ta.pnHasPlayNow() {
+			t.Fatal("Play Now still listed after removing its last track")
+		}
+	})
+	t.Run("removeMissingTracks", func(t *testing.T) {
+		ta := newTestApp(t)
+		g := ta.ghost("g.mp3")
+		ta.setPlayNow([]model.Track{g})
+		ta.removeMissingTracks([]model.Track{g})
+		if ta.pnHasPlayNow() {
+			t.Fatal("Play Now still listed after removing its last track")
+		}
+	})
+}
+
+func TestDeletingSavedPlaylistWithPlayNowSelectsLibrary(t *testing.T) {
+	ta := newTestApp(t)
+	mine := ta.newPlaylist(t, "Mine")
+	ta.setPlayNow([]model.Track{ta.existing(t, "a.mp3")})
+	ta.selectPlaylist(mine.ID)
+
+	ta.deleteSelectedPlaylist()
+	btn := overlayButton(t, ta.App, "Delete")
+	if btn == nil {
+		t.Fatalf("no Delete button; texts = %v", overlayTexts(t, ta.App))
+	}
+	test.Tap(btn)
+
+	if ta.selectedPL != ta.libraryID(t) {
+		t.Fatalf("selectedPL = %d, want Library %d", ta.selectedPL, ta.libraryID(t))
+	}
 }

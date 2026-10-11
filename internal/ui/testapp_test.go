@@ -26,6 +26,7 @@ type fakePlayer struct {
 	played  []string
 	errs    map[string]error
 	stops   int
+	closes  int
 	onEnded func()
 	vol     float64
 	volSet  bool
@@ -60,7 +61,7 @@ func (p *fakePlayer) Duration() time.Duration          { return 0 }
 func (p *fakePlayer) Seek(time.Duration) error         { return nil }
 func (p *fakePlayer) Snapshot() audio.Snapshot         { return audio.Snapshot{} }
 func (p *fakePlayer) Spectrum(dst []float64) []float64 { return dst }
-func (p *fakePlayer) Close()                           {}
+func (p *fakePlayer) Close()                           { p.mu.Lock(); p.closes++; p.mu.Unlock() }
 func (p *fakePlayer) SetOnEnded(fn func())             { p.onEnded = fn }
 func (p *fakePlayer) playedPaths() []string {
 	p.mu.Lock()
@@ -273,4 +274,10 @@ func overlayButton(t *testing.T, a *App, text string) *widget.Button {
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
+}
+
+func (p *fakePlayer) closeCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.closes
 }
