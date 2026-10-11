@@ -279,7 +279,8 @@ func TestPrevSkipsMissingBackward(t *testing.T) {
 	a, g, c := ta.existing(t, "a.mp3"), ta.ghost("g.mp3"), ta.existing(t, "c.mp3")
 	ta.fill(t, ta.libraryID(t), a, g, c)
 	ta.player.errs[g.Path] = notExist(g.Path)
-	ta.playFrom(2)
+	ta.playFrom(0)
+	ta.next() // skips g forward onto c
 
 	ta.prev()
 
