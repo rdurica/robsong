@@ -246,3 +246,113 @@ func TestReplaceOrder(t *testing.T) {
 		t.Fatalf("unexpected order: %+v", got)
 	}
 }
+
+func fourTracks() []model.Track {
+	return append(sampleTracks(), model.Track{Path: "/music/d.ogg", Title: "D", Artist: "Art", DurationMs: 4000})
+}
+
+func titles(tracks []model.Track) []string {
+	out := make([]string, len(tracks))
+	for i, tr := range tracks {
+		out[i] = tr.Title
+	}
+	return out
+}
+
+func assertTitles(t *testing.T, store *playlist.Store, id int64, want ...string) {
+	t.Helper()
+	got, err := store.ListTracks(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := titles(got)
+	if len(g) != len(want) {
+		t.Fatalf("got %v, want %v", g, want)
+	}
+	for i := range want {
+		if g[i] != want[i] {
+			t.Fatalf("got %v, want %v", g, want)
+		}
+	}
+}
+
+func TestRemoveTracksByPathRenumbersContiguously(t *testing.T) {
+	store := openTestStore(t)
+	pl, err := store.CreatePlaylist("Mix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AddTracks(pl.ID, fourTracks()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.RemoveTracksByPath(pl.ID, []string{"/music/b.flac", "/music/d.ogg"}); err != nil {
+		t.Fatal(err)
+	}
+	assertTitles(t, store, pl.ID, "A", "C")
+
+	// Positions must be contiguous from 0: position 1 is C, position 2 is gone.
+	if err := store.RemoveTrackAt(pl.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	assertTitles(t, store, pl.ID, "A")
+
+	// A new track must append directly after the remaining one.
+	if err := store.AddTracks(pl.ID, sampleTracks()[1:2]); err != nil {
+		t.Fatal(err)
+	}
+	assertTitles(t, store, pl.ID, "A", "B")
+}
+
+func TestRemoveTracksByPathLeavesOtherPlaylistsIntact(t *testing.T) {
+	store := openTestStore(t)
+	libID, err := store.LibraryID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := store.CreatePlaylist("X")
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := store.CreatePlaylist("Y")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{libID, x.ID, y.ID} {
+		if err := store.AddTracks(id, fourTracks()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := store.RemoveTracksByPath(x.ID, []string{"/music/b.flac", "/music/c.wav"}); err != nil {
+		t.Fatal(err)
+	}
+
+	assertTitles(t, store, x.ID, "A", "D")
+	assertTitles(t, store, y.ID, "A", "B", "C", "D")
+	assertTitles(t, store, libID, "A", "B", "C", "D")
+}
+
+func TestRemoveTracksByPathNoopCases(t *testing.T) {
+	cases := map[string][]string{
+		"empty paths":      {},
+		"nil paths":        nil,
+		"path not in list": {"/music/missing.mp3"},
+	}
+	for name, paths := range cases {
+		t.Run(name, func(t *testing.T) {
+			store := openTestStore(t)
+			pl, err := store.CreatePlaylist("Mix")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.AddTracks(pl.ID, fourTracks()); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.RemoveTracksByPath(pl.ID, paths); err != nil {
+				t.Fatalf("expected nil error, got %v", err)
+			}
+			assertTitles(t, store, pl.ID, "A", "B", "C", "D")
+		})
+	}
+}
