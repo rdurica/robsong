@@ -107,3 +107,26 @@ func DurationMs(path string) (int64, error) {
 	defer streamer.Close()
 	return format.SampleRate.D(streamer.Len()).Milliseconds(), nil
 }
+
+// CollectTracks expands each path (file or folder) in order, skipping
+// unreadable or unsupported ones and de-duplicating by absolute path.
+func CollectTracks(paths []string) []model.Track {
+	var out []model.Track
+	seen := map[string]struct{}{}
+	for _, p := range paths {
+		ts, _ := ImportPaths([]string{p})
+		for _, t := range ts {
+			abs, err := filepath.Abs(t.Path)
+			if err != nil {
+				abs = t.Path
+			}
+			if _, ok := seen[abs]; ok {
+				continue
+			}
+			seen[abs] = struct{}{}
+			t.Path = abs
+			out = append(out, t)
+		}
+	}
+	return out
+}

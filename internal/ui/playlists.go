@@ -42,6 +42,43 @@ func (a *App) setPlayNow(tracks []model.Track) {
 	a.playFrom(0)
 }
 
+// selectDefaultPlaylist selects the Library, or else the first playlist that
+// is not Play Now.
+func (a *App) selectDefaultPlaylist() {
+	idx := -1
+	if libID, err := a.store.LibraryID(); err == nil {
+		for i, p := range a.playlists {
+			if p.ID == libID {
+				idx = i
+				break
+			}
+		}
+	}
+	if idx < 0 {
+		for i, p := range a.playlists {
+			if p.ID != playNowID {
+				idx = i
+				break
+			}
+		}
+	}
+	if idx < 0 {
+		return
+	}
+	a.selectPlaylist(a.playlists[idx].ID)
+	a.playlistList.Select(idx)
+}
+
+// dropEmptyPlayNow removes the Play Now entry once its last track is gone and
+// moves the selection to the default playlist.
+func (a *App) dropEmptyPlayNow() {
+	if a.selectedPL != playNowID || len(a.playNow) > 0 {
+		return
+	}
+	a.reloadPlaylists()
+	a.selectDefaultPlaylist()
+}
+
 // storeTracks lists the tracks of playlist id; Play Now comes from memory.
 func (a *App) storeTracks(id int64) ([]model.Track, error) {
 	if id == playNowID {
@@ -192,10 +229,7 @@ func (a *App) deleteSelectedPlaylist() {
 			return
 		}
 		a.reloadPlaylists()
-		if len(a.playlists) > 0 {
-			a.selectPlaylist(a.playlists[0].ID)
-			a.playlistList.Select(0)
-		}
+		a.selectDefaultPlaylist()
 	}, a.win)
 	d.SetConfirmImportance(widget.DangerImportance)
 	d.Show()

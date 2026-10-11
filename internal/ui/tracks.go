@@ -130,6 +130,7 @@ func (a *App) removeTrackFromPlaylist(index int) {
 		a.trackList.Select(a.selectedTrack)
 	}
 	a.trackList.Refresh()
+	a.dropEmptyPlayNow()
 }
 
 // resyncQueueFromPlaylist realigns the playback queue with allTracks from the current track.
@@ -158,7 +159,7 @@ func (a *App) showTrackContextMenu(index int, t model.Track, pos fyne.Position) 
 	var addKids []ctxMenuAction
 	for i := range a.playlists {
 		pl := a.playlists[i]
-		if pl.System || pl.ID == a.selectedPL || pl.ID == playNowID {
+		if pl.ID == playNowID || pl.ID == a.selectedPL || (pl.System && a.selectedPL != playNowID) {
 			continue
 		}
 		addKids = append(addKids, ctxMenuAction{

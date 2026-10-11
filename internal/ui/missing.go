@@ -199,5 +199,6 @@ func (a *App) removeMissingTracks(missing []model.Track) {
 	a.selectedTrack = -1
 	a.trackList.UnselectAll()
 	a.trackList.Refresh()
+	a.dropEmptyPlayNow()
 	a.setStatus(fmt.Sprintf("Rescan: removed %d missing tracks", len(paths)))
 }

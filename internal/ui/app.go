@@ -83,16 +83,6 @@ type App struct {
 	tickerStop           chan struct{}
 }
 
-// NewApp constructs the application UI and routes track-end events to it.
-func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
-	a := newApp(fa, store, player)
-	a.startBar()
-	player.SetOnEnded(func() {
-		fyne.Do(func() { a.onTrackEnded() })
-	})
-	return a
-}
-
 // newApp builds the full window around player. The caller owns the player's
 // track-end callback and starting the bar animation (startBar). Play Now is never restored from a previous session.
 func newApp(fa fyne.App, store *playlist.Store, player playerBackend) *App {
@@ -123,13 +113,6 @@ func newApp(fa fyne.App, store *playlist.Store, player playerBackend) *App {
 		a.playlistList.Select(idx)
 	}
 	return a
-}
-
-// ShowAndRun shows the window and runs the event loop.
-func (a *App) ShowAndRun() {
-	a.win.Resize(fyne.NewSize(1024, 700))
-	a.win.CenterOnScreen()
-	a.win.ShowAndRun()
 }
 
 func (a *App) build() {
