@@ -160,11 +160,15 @@ func (a *App) removeMissingTracks(missing []model.Track) {
 	for _, t := range missing {
 		paths = append(paths, t.Path)
 	}
-	if err := a.store.RemoveTracksByPath(a.selectedPL, paths); err != nil {
+	if a.selectedPL == playNowID {
+		a.playNow = slices.DeleteFunc(slices.Clone(a.playNow), func(t model.Track) bool {
+			return slices.Contains(paths, t.Path)
+		})
+	} else if err := a.store.RemoveTracksByPath(a.selectedPL, paths); err != nil {
 		a.setStatus("Remove failed: " + err.Error())
 		return
 	}
-	tracks, err := a.store.ListTracks(a.selectedPL)
+	tracks, err := a.storeTracks(a.selectedPL)
 	if err != nil {
 		a.setStatus("Failed to load tracks: " + err.Error())
 		return

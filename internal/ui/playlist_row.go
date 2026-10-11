@@ -27,6 +27,10 @@ func newPlaylistRow(a *App) *playlistRow {
 
 func (r *playlistRow) Update(index int, name string) {
 	r.index = index
+	r.label.TextStyle = fyne.TextStyle{}
+	if index >= 0 && index < len(r.app.playlists) && r.app.playlists[index].ID == playNowID {
+		r.label.TextStyle = fyne.TextStyle{Italic: true}
+	}
 	r.label.SetText(name)
 }
 

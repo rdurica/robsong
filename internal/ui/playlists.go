@@ -1,11 +1,20 @@
 package ui
 
 import (
+	"slices"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/rdurica/robsong/internal/model"
+)
+
+const (
+	// playNowID is the sentinel ID of the in-memory Play Now playlist; nothing
+	// is ever stored under it.
+	playNowID   int64 = -1
+	playNowName       = "Play Now"
 )
 
 func (a *App) reloadPlaylists() {
@@ -14,14 +23,37 @@ func (a *App) reloadPlaylists() {
 		a.setStatus("Failed to load playlists: " + err.Error())
 		return
 	}
+	if len(a.playNow) > 0 {
+		pls = append([]model.Playlist{{ID: playNowID, Name: playNowName}}, pls...)
+	}
 	a.playlists = pls
 	a.playlistList.Refresh()
+}
+
+// setPlayNow replaces the Play Now content, selects it and plays from the first track.
+func (a *App) setPlayNow(tracks []model.Track) {
+	if len(tracks) == 0 {
+		return
+	}
+	a.playNow = slices.Clone(tracks)
+	a.reloadPlaylists()
+	a.selectPlaylist(playNowID)
+	a.playlistList.Select(0)
+	a.playFrom(0)
+}
+
+// storeTracks lists the tracks of playlist id; Play Now comes from memory.
+func (a *App) storeTracks(id int64) ([]model.Track, error) {
+	if id == playNowID {
+		return slices.Clone(a.playNow), nil
+	}
+	return a.store.ListTracks(id)
 }
 
 func (a *App) selectPlaylist(id int64) {
 	a.selectedPL = id
 	a.selectedTrack = -1
-	tracks, err := a.store.ListTracks(id)
+	tracks, err := a.storeTracks(id)
 	if err != nil {
 		a.setStatus("Failed to load tracks: " + err.Error())
 		return
@@ -30,7 +62,9 @@ func (a *App) selectPlaylist(id int64) {
 	a.applyTrackFilter()
 	a.trackList.Refresh()
 	a.trackList.UnselectAll()
-	a.fyneApp.Preferences().SetInt(prefLastPlaylistID, int(id))
+	if id != playNowID {
+		a.fyneApp.Preferences().SetInt(prefLastPlaylistID, int(id))
+	}
 }
 
 func (a *App) currentPlaylistName() string {
@@ -87,7 +121,7 @@ func (a *App) promptRenamePlaylist() {
 			break
 		}
 	}
-	if pl == nil {
+	if pl == nil || pl.ID == playNowID {
 		return
 	}
 	if pl.System {
@@ -131,7 +165,7 @@ func (a *App) deleteSelectedPlaylist() {
 			break
 		}
 	}
-	if pl == nil {
+	if pl == nil || pl.ID == playNowID {
 		return
 	}
 	if pl.System {
@@ -171,6 +205,9 @@ func (a *App) deleteSelectedPlaylist() {
 
 // playlistMenuActions returns the right-click actions for a playlist.
 func (a *App) playlistMenuActions(pl model.Playlist) []ctxMenuAction {
+	if pl.ID == playNowID {
+		return nil
+	}
 	actions := []ctxMenuAction{{label: "Rescan", action: a.rescanSelectedPlaylist}}
 	if pl.System {
 		return actions

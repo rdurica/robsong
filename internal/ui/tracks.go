@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -50,10 +51,19 @@ func (a *App) moveTrack(from, to int) {
 	if from == to || from < 0 || to < 0 || from >= len(a.tracks) || to >= len(a.tracks) {
 		return
 	}
-	tracks, err := a.store.MoveTrack(a.selectedPL, from, to)
-	if err != nil {
-		a.setStatus("Reorder failed: " + err.Error())
-		return
+	var tracks []model.Track
+	if a.selectedPL == playNowID {
+		t := a.playNow[from]
+		moved := slices.Delete(slices.Clone(a.playNow), from, from+1)
+		a.playNow = slices.Insert(moved, to, t)
+		tracks = slices.Clone(a.playNow)
+	} else {
+		var err error
+		tracks, err = a.store.MoveTrack(a.selectedPL, from, to)
+		if err != nil {
+			a.setStatus("Reorder failed: " + err.Error())
+			return
+		}
 	}
 	a.allTracks = tracks
 	a.applyTrackFilter()
@@ -84,11 +94,13 @@ func (a *App) removeTrackFromPlaylist(index int) {
 		playingRemoved = true
 	}
 
-	if err := a.store.RemoveTrackAt(a.selectedPL, storePos); err != nil {
+	if a.selectedPL == playNowID {
+		a.playNow = slices.Delete(slices.Clone(a.playNow), storePos, storePos+1)
+	} else if err := a.store.RemoveTrackAt(a.selectedPL, storePos); err != nil {
 		a.setStatus("Remove failed: " + err.Error())
 		return
 	}
-	tracks, err := a.store.ListTracks(a.selectedPL)
+	tracks, err := a.storeTracks(a.selectedPL)
 	if err != nil {
 		a.setStatus("Failed to load tracks: " + err.Error())
 		return
@@ -146,7 +158,7 @@ func (a *App) showTrackContextMenu(index int, t model.Track, pos fyne.Position) 
 	var addKids []ctxMenuAction
 	for i := range a.playlists {
 		pl := a.playlists[i]
-		if pl.System || pl.ID == a.selectedPL {
+		if pl.System || pl.ID == a.selectedPL || pl.ID == playNowID {
 			continue
 		}
 		addKids = append(addKids, ctxMenuAction{

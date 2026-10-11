@@ -54,7 +54,7 @@ func (a *App) importPaths(paths []string) {
 		return
 	}
 	target := a.selectedPL
-	if target == 0 {
+	if target == 0 || target == playNowID {
 		target = libID
 	}
 	if err := a.store.AddTracks(libID, tracks); err != nil {
