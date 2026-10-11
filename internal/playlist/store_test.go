@@ -1,11 +1,15 @@
 package playlist_test
 
 import (
+	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rdurica/robsong/internal/model"
 	"github.com/rdurica/robsong/internal/playlist"
+	_ "modernc.org/sqlite"
 )
 
 func openTestStore(t *testing.T) *playlist.Store {
@@ -354,5 +358,39 @@ func TestRemoveTracksByPathNoopCases(t *testing.T) {
 			}
 			assertTitles(t, store, pl.ID, "A", "B", "C", "D")
 		})
+	}
+}
+
+func TestOpenPathWaitsForWriteLock(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "library.db")
+	store, err := playlist.OpenPath(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	// A second process-like connection holds the write lock briefly.
+	other, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = other.Close() })
+	other.SetMaxOpenConns(1)
+	ctx := context.Background()
+	conn, err := other.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		_, _ = conn.ExecContext(ctx, `ROLLBACK`)
+		_ = conn.Close()
+	}()
+
+	if _, err := store.CreatePlaylist("Waits"); err != nil {
+		t.Fatalf("write while another connection holds the lock must wait (busy_timeout), got: %v", err)
 	}
 }
