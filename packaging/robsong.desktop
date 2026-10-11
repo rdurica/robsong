@@ -2,8 +2,9 @@
 Type=Application
 Name=Robsong
 Comment=Lightweight local music player
-Exec=robsong
+Exec=robsong %F
 Icon=robsong
 Categories=AudioVideo;Audio;Player;
+MimeType=audio/mpeg;audio/mp3;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/ogg;audio/x-vorbis+ogg;
 Terminal=false
 StartupNotify=true

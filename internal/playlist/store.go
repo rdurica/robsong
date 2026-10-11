@@ -41,6 +41,10 @@ func OpenPath(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("pragma busy_timeout: %w", err)
+	}
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("pragma foreign_keys: %w", err)

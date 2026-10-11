@@ -44,6 +44,9 @@ overrides:
       - libwayland-client0
       - libxkbcommon0
       - libasound2t64
+scripts:
+  postinstall: packaging/postinstall.sh
+  postremove: packaging/postremove.sh
 rpm:
   group: Applications/Multimedia
   compression: xz
