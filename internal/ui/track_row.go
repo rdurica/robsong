@@ -31,7 +31,7 @@ func newTrackRow(a *App) *trackRow {
 	return r
 }
 
-func (r *trackRow) Update(index int, t model.Track, playing bool) {
+func (r *trackRow) Update(index int, t model.Track, playing, missing bool) {
 	r.index = index
 	artist := t.DisplayArtist()
 	title := t.DisplayTitle()
@@ -41,6 +41,11 @@ func (r *trackRow) Update(index int, t model.Track, playing bool) {
 		r.line.SetText(title)
 	}
 	r.line.TextStyle = fyne.TextStyle{Bold: playing}
+	if missing {
+		r.line.Importance = widget.LowImportance
+	} else {
+		r.line.Importance = widget.MediumImportance
+	}
 	r.line.Refresh()
 	if t.DurationMs > 0 {
 		r.duration.SetText(formatMs(t.DurationMs))

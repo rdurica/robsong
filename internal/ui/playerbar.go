@@ -202,13 +202,10 @@ func (a *App) playCurrent() {
 	if !ok {
 		return
 	}
-	if err := a.player.Play(t.Path); err != nil {
-		a.setStatus("Play error: " + err.Error())
+	if !a.playSkippingMissing(t, a.queue.Next) {
 		return
 	}
 	a.spectrum.SetActive(true)
-	a.updateNowPlaying()
-	a.trackList.Refresh()
 	a.setStatus("")
 }
 
@@ -233,18 +230,7 @@ func (a *App) togglePlay() {
 }
 
 func (a *App) next() {
-	if t, ok := a.queue.Next(); ok {
-		if err := a.player.Play(t.Path); err != nil {
-			a.setStatus("Play error: " + err.Error())
-			return
-		}
-		a.updateNowPlaying()
-		a.trackList.Refresh()
-		return
-	}
-	a.player.Stop()
-	a.updateNowPlaying()
-	a.trackList.Refresh()
+	a.advance()
 }
 
 func (a *App) prev() {
@@ -253,25 +239,20 @@ func (a *App) prev() {
 		return
 	}
 	if t, ok := a.queue.Prev(); ok {
-		if err := a.player.Play(t.Path); err != nil {
-			a.setStatus("Play error: " + err.Error())
-			return
-		}
-		a.updateNowPlaying()
-		a.trackList.Refresh()
+		a.playSkippingMissing(t, a.queue.Prev)
 		return
 	}
 	_ = a.player.Seek(0)
 }
 
 func (a *App) onTrackEnded() {
+	a.advance()
+}
+
+// advance moves to the next queued track, or stops at the end of the queue.
+func (a *App) advance() {
 	if t, ok := a.queue.Next(); ok {
-		if err := a.player.Play(t.Path); err != nil {
-			a.setStatus("Play error: " + err.Error())
-			return
-		}
-		a.updateNowPlaying()
-		a.trackList.Refresh()
+		a.playSkippingMissing(t, a.queue.Next)
 		return
 	}
 	a.player.Stop()

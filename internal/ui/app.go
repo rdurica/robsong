@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -24,18 +25,37 @@ const (
 	prefVolumeBeforeMute = "volume_before_mute"
 )
 
+// playerBackend is the playback surface the UI needs; *audio.Player satisfies it.
+type playerBackend interface {
+	Play(path string) error
+	Stop()
+	TogglePause() bool
+	IsPlaying() bool
+	SetVolume(v float64)
+	Volume() float64
+	Position() time.Duration
+	Duration() time.Duration
+	Seek(pos time.Duration) error
+	Snapshot() audio.Snapshot
+	Spectrum(dst []float64) []float64
+	Close()
+	SetOnEnded(fn func())
+}
+
 // App wires UI, store, queue and player.
 type App struct {
 	fyneApp fyne.App
 	win     fyne.Window
 	store   *playlist.Store
 	queue   *queue.Queue
-	player  *audio.Player
+	player  playerBackend
 
 	playlists            []model.Playlist
 	allTracks            []model.Track
 	tracks               []model.Track
 	selectedPL           int64
+	missing              map[string]struct{}
+	status               string
 	selectedTrack        int
 	seeking              bool
 	progressUpdating     bool
@@ -158,7 +178,7 @@ func (a *App) build() {
 			if cur, ok := a.queue.Current(); ok && cur.Path == t.Path {
 				playing = true
 			}
-			row.Update(int(id), t, playing)
+			row.Update(int(id), t, playing, a.isMissing(t.Path))
 		},
 	)
 	a.trackList.OnSelected = func(id widget.ListItemID) {

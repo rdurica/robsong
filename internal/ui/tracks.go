@@ -95,6 +95,7 @@ func (a *App) removeTrackFromPlaylist(index int) {
 	}
 	a.allTracks = tracks
 	a.applyTrackFilter()
+	delete(a.missing, removed.Path)
 
 	if playingRemoved {
 		// Keep the removed track as current so the playing file can finish;
