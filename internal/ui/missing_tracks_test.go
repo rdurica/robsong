@@ -2,8 +2,11 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 
@@ -538,5 +541,87 @@ func TestPlayFromWithoutSkipLeavesStatusEmpty(t *testing.T) {
 
 	if ta.status != "" {
 		t.Errorf("status = %q, want empty", ta.status)
+	}
+}
+
+// rescanWithGhosts fills the Library with n missing tracks and opens the rescan dialog.
+func rescanWithGhosts(t *testing.T, n int) *testApp {
+	t.Helper()
+	ta := newTestApp(t)
+	ta.win.Resize(fyne.NewSize(1024, 700))
+	ghosts := make([]model.Track, 0, n)
+	for i := 0; i < n; i++ {
+		ghosts = append(ghosts, ta.ghost(fmt.Sprintf("g%03d.mp3", i)))
+	}
+	ta.fill(t, ta.libraryID(t), ghosts...)
+	ta.rescanSelectedPlaylist()
+	return ta
+}
+
+// overlayVScroll returns the first vertical scroll container in the dialog overlay.
+func overlayVScroll(t *testing.T, a *App) *container.Scroll {
+	t.Helper()
+	var found *container.Scroll
+	for _, ov := range a.win.Canvas().Overlays().List() {
+		collectObjects(t, ov, func(o fyne.CanvasObject) {
+			if sc, ok := o.(*container.Scroll); ok && found == nil && sc.Direction != container.ScrollHorizontalOnly {
+				found = sc
+			}
+		})
+	}
+	return found
+}
+
+func overlayMinHeight(a *App) float32 {
+	var h float32
+	for _, ov := range a.win.Canvas().Overlays().List() {
+		if m := ov.MinSize().Height; m > h {
+			h = m
+		}
+	}
+	return h
+}
+
+func TestRescanDialogListAlwaysInScroll(t *testing.T) {
+	for _, n := range []int{2, 50} {
+		t.Run(fmt.Sprintf("%d missing", n), func(t *testing.T) {
+			ta := rescanWithGhosts(t, n)
+			if overlayVScroll(t, ta.App) == nil {
+				t.Fatalf("no vertical Scroll in dialog overlay; texts = %v", overlayTexts(t, ta.App))
+			}
+		})
+	}
+}
+
+func TestRescanDialogHeightBoundedWithManyTracks(t *testing.T) {
+	ref := rescanWithGhosts(t, 12)
+	refH := overlayMinHeight(ref.App)
+
+	ta := rescanWithGhosts(t, 50)
+	sc := overlayVScroll(t, ta.App)
+	if sc == nil {
+		t.Fatalf("no vertical Scroll in dialog overlay")
+	}
+	if h := sc.MinSize().Height; h > 320 {
+		t.Errorf("scroll MinSize height = %v, want <= 320", h)
+	}
+	if h := overlayMinHeight(ta.App); h > refH {
+		t.Errorf("overlay MinSize height with 50 tracks = %v, exceeds 12-track height %v", h, refH)
+	}
+}
+
+func TestRescanDialogHeaderShowsCount(t *testing.T) {
+	cases := map[int]string{
+		1:  "1 track no longer exists on disk.",
+		2:  "2 tracks no longer exist on disk.",
+		50: "50 tracks no longer exist on disk.",
+	}
+	for n, want := range cases {
+		t.Run(fmt.Sprintf("%d missing", n), func(t *testing.T) {
+			ta := rescanWithGhosts(t, n)
+			if !overlayContains(t, ta.App, want) {
+				t.Errorf("header %q not found; texts = %v", want, overlayTexts(t, ta.App))
+			}
+		})
 	}
 }
