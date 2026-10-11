@@ -35,7 +35,7 @@ type Shell struct {
 // NewShell creates a Shell. openStore is called at most once successfully,
 // the first time a store is needed.
 func NewShell(fa fyne.App, player *audio.Player, openStore func() (*playlist.Store, error)) *Shell {
-	s := newShell(fa, player, openStore, readAudioTracks)
+	s := newShell(fa, player, openStore, library.CollectTracks)
 	s.animate = true
 	return s
 }
@@ -46,27 +46,6 @@ func newShell(fa fyne.App, player playerBackend, openStore func() (*playlist.Sto
 	return s
 }
 
-// readAudioTracks expands files and folders into supported tracks, skipping
-// unreadable arguments and de-duplicating by absolute path.
-func readAudioTracks(paths []string) []model.Track {
-	var out []model.Track
-	seen := map[string]struct{}{}
-	for _, p := range paths {
-		ts, _ := library.ImportPaths([]string{p})
-		for _, t := range ts {
-			if abs, err := filepath.Abs(t.Path); err == nil {
-				t.Path = abs
-			}
-			if _, dup := seen[t.Path]; dup {
-				continue
-			}
-			seen[t.Path] = struct{}{}
-			out = append(out, t)
-		}
-	}
-	return out
-}
-
 // RunMini shows the mini player for t and runs the event loop.
 func (s *Shell) RunMini(t model.Track) {
 	s.showMini(t)
@@ -75,14 +54,20 @@ func (s *Shell) RunMini(t model.Track) {
 
 // RunFull shows the full window and runs the event loop; more than one track
 // fills Play Now and starts playing.
-func (s *Shell) RunFull(tracks []model.Track) {
-	s.showFull(tracks)
+// It returns an error, without creating a window, when the library cannot be opened.
+func (s *Shell) RunFull(tracks []model.Track) error {
+	if err := s.showFull(tracks); err != nil {
+		return err
+	}
 	s.fa.Run()
+	return nil
 }
 
 // Open handles a launch request from another process. Safe from any goroutine.
+// Files are read on the calling goroutine; only the window update runs on the UI thread.
 func (s *Shell) Open(paths []string) {
-	fyne.Do(func() { s.handleOpen(paths) })
+	tracks := s.readTracks(paths)
+	fyne.Do(func() { s.handleTracks(len(paths) > 0, tracks) })
 }
 
 func (s *Shell) getStore() (*playlist.Store, error) {
@@ -112,12 +97,10 @@ func (s *Shell) showMini(t model.Track) {
 	s.mini.win.Show()
 }
 
-func (s *Shell) showFull(tracks []model.Track) {
+func (s *Shell) showFull(tracks []model.Track) error {
 	st, err := s.getStore()
 	if err != nil {
-		// Without a store the full window cannot work; keep whatever is shown.
-		s.toast("Library unavailable: " + err.Error())
-		return
+		return err
 	}
 	a := newApp(s.fa, st, s.player)
 	if s.animate {
@@ -130,6 +113,7 @@ func (s *Shell) showFull(tracks []model.Track) {
 	if len(tracks) > 0 {
 		a.setPlayNow(tracks)
 	}
+	return nil
 }
 
 // toast shows msg in whichever window is current.
@@ -143,8 +127,13 @@ func (s *Shell) toast(msg string) {
 }
 
 func (s *Shell) handleOpen(paths []string) {
-	tracks := s.readTracks(paths)
-	if len(paths) > 0 && len(tracks) == 0 {
+	s.handleTracks(len(paths) > 0, s.readTracks(paths))
+}
+
+// handleTracks routes already expanded tracks; hadPaths tells an empty launch
+// from one whose files were all unsupported.
+func (s *Shell) handleTracks(hadPaths bool, tracks []model.Track) {
+	if hadPaths && len(tracks) == 0 {
 		s.toast("No supported audio file")
 		return
 	}

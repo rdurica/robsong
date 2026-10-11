@@ -72,8 +72,9 @@ func run(args []string) int {
 
 	if mode == launchMini {
 		shell.RunMini(tracks[0])
-	} else {
-		shell.RunFull(tracks)
+	} else if err := shell.RunFull(tracks); err != nil {
+		fmt.Fprintf(os.Stderr, "open library: %v\n", err)
+		return 1
 	}
 	return 0
 }

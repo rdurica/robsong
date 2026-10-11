@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"math"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -168,7 +167,6 @@ func (a *App) toggleMute() {
 }
 
 func (a *App) onVolumeChanged(v float64) {
-	v = math.Round(v*100) / 100 // the slider steps by 0.01; drop float noise like 0.35000000000000003
 	a.player.SetVolume(v)
 	if v > 0.05 {
 		a.volumeBeforeMute = v
