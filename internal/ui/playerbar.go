@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"math"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -10,7 +11,22 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// barOptions customises the shared player bar. prev and next are optional
+// (nil omits the button); footer, when set, is shown under the seek row.
+type barOptions struct {
+	prev, next func()
+	toggle     func()
+	footer     fyne.CanvasObject
+}
+
+// buildPlayerBar builds the full-window bar (with prev/next).
 func (a *App) buildPlayerBar() fyne.CanvasObject {
+	return a.buildBar(barOptions{prev: a.prev, next: a.next, toggle: a.togglePlay})
+}
+
+// buildBar builds the player bar; it needs only the player, prefs and cover,
+// not the store, lists or playlist queue, so the mini window shares it.
+func (a *App) buildBar(o barOptions) fyne.CanvasObject {
 	a.spectrum = NewSpectrumViz()
 	a.spectrum.SetSource(a.player.Spectrum)
 
@@ -46,11 +62,15 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 	a.volume.SetValue(a.player.Volume())
 	a.volume.OnChanged = a.onVolumeChanged
 
-	prev := iconBtn(theme.MediaSkipPreviousIcon(), a.prev)
-	a.playBtn = NewPlayButton(theme.MediaPlayIcon(), a.togglePlay)
-	next := iconBtn(theme.MediaSkipNextIcon(), a.next)
-
-	controls := container.NewHBox(prev, a.playBtn, next)
+	a.playBtn = NewPlayButton(theme.MediaPlayIcon(), o.toggle)
+	ctrls := []fyne.CanvasObject{a.playBtn}
+	if o.prev != nil {
+		ctrls = append([]fyne.CanvasObject{iconBtn(theme.MediaSkipPreviousIcon(), o.prev)}, ctrls...)
+	}
+	if o.next != nil {
+		ctrls = append(ctrls, iconBtn(theme.MediaSkipNextIcon(), o.next))
+	}
+	controls := container.NewHBox(ctrls...)
 
 	timeW := float32(44)
 	posBox := container.New(layout.NewGridWrapLayout(fyne.NewSize(timeW, 24)), a.posLabel)
@@ -65,10 +85,31 @@ func (a *App) buildPlayerBar() fyne.CanvasObject {
 	))
 	top := container.New(&playerTopLayout{}, a.nowTitle, controls, volBox)
 
+	rows := []fyne.CanvasObject{top, seek}
+	if o.footer != nil {
+		rows = append(rows, o.footer)
+	}
 	return container.NewVBox(
 		a.spectrum,
-		container.NewBorder(nil, nil, a.cover, nil, container.NewVBox(top, seek)),
+		container.NewBorder(nil, nil, a.cover, nil, container.NewVBox(rows...)),
 	)
+}
+
+// startBar starts the bar's animation and progress ticker.
+func (a *App) startBar() {
+	a.spectrum.Start()
+	a.nowTitle.Start()
+	a.startProgressTicker()
+}
+
+// stopBar stops the bar's background animation and progress ticker.
+func (a *App) stopBar() {
+	a.spectrum.Stop()
+	a.nowTitle.Stop()
+	if a.tickerStop != nil {
+		close(a.tickerStop)
+		a.tickerStop = nil
+	}
 }
 
 func clamp01(v float64) float64 {
@@ -127,6 +168,7 @@ func (a *App) toggleMute() {
 }
 
 func (a *App) onVolumeChanged(v float64) {
+	v = math.Round(v*100) / 100 // the slider steps by 0.01; drop float noise like 0.35000000000000003
 	a.player.SetVolume(v)
 	if v > 0.05 {
 		a.volumeBeforeMute = v
@@ -159,10 +201,17 @@ func (a *App) syncMuteIcon() {
 }
 
 func (a *App) startProgressTicker() {
+	stop := make(chan struct{})
+	a.tickerStop = stop
 	go func() {
 		t := time.NewTicker(250 * time.Millisecond)
 		defer t.Stop()
-		for range t.C {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-t.C:
+			}
 			if a.seeking {
 				continue
 			}

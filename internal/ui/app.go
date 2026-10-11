@@ -79,10 +79,23 @@ type App struct {
 	playlistPanel        fyne.CanvasObject
 	playlistsBtn         *widget.Button
 	playlistPanelVisible bool
+	playNow              []model.Track // in-memory "Play Now" playlist, never persisted
+	tickerStop           chan struct{}
 }
 
-// NewApp constructs the application UI.
+// NewApp constructs the application UI and routes track-end events to it.
 func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
+	a := newApp(fa, store, player)
+	a.startBar()
+	player.SetOnEnded(func() {
+		fyne.Do(func() { a.onTrackEnded() })
+	})
+	return a
+}
+
+// newApp builds the full window around player. The caller owns the player's
+// track-end callback and starting the bar animation (startBar). Play Now is never restored from a previous session.
+func newApp(fa fyne.App, store *playlist.Store, player playerBackend) *App {
 	win := fa.NewWindow("Robsong")
 	win.SetIcon(assets.Logo)
 	a := &App{
@@ -94,9 +107,6 @@ func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
 		selectedTrack: -1,
 		cover:         newCoverArt(library.ReadCover),
 	}
-	player.SetOnEnded(func() {
-		fyne.Do(func() { a.onTrackEnded() })
-	})
 	a.loadVolumePrefs()
 	a.build()
 	a.reloadPlaylists()
@@ -112,9 +122,6 @@ func NewApp(fa fyne.App, store *playlist.Store, player *audio.Player) *App {
 		a.selectPlaylist(a.playlists[idx].ID)
 		a.playlistList.Select(idx)
 	}
-	a.spectrum.Start()
-	a.nowTitle.Start()
-	a.startProgressTicker()
 	return a
 }
 
@@ -225,8 +232,7 @@ func (a *App) build() {
 		}
 	})
 	a.win.SetCloseIntercept(func() {
-		a.spectrum.Stop()
-		a.nowTitle.Stop()
+		a.stopBar()
 		a.player.Close()
 		_ = a.store.Close()
 		a.win.Close()
