@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -130,11 +131,11 @@ func (a *App) removeMissingTracks(missing []model.Track) {
 
 	// Same queue handling as removeTrackFromPlaylist: a playing track that was
 	// removed stays current and Next continues with what followed it.
-	if cur, ok := a.queue.Current(); ok && containsPath(paths, cur.Path) {
+	if cur, ok := a.queue.Current(); ok && slices.Contains(paths, cur.Path) {
 		rest := []model.Track{cur}
 		seen := false
 		for _, t := range prev {
-			if seen && !containsPath(paths, t.Path) {
+			if seen && !slices.Contains(paths, t.Path) {
 				rest = append(rest, t)
 			}
 			seen = seen || t.Path == cur.Path
@@ -151,13 +152,4 @@ func (a *App) removeMissingTracks(missing []model.Track) {
 	a.trackList.UnselectAll()
 	a.trackList.Refresh()
 	a.setStatus(fmt.Sprintf("Rescan: removed %d missing tracks", len(paths)))
-}
-
-func containsPath(paths []string, p string) bool {
-	for _, q := range paths {
-		if q == p {
-			return true
-		}
-	}
-	return false
 }
