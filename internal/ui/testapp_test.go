@@ -27,6 +27,8 @@ type fakePlayer struct {
 	errs    map[string]error
 	stops   int
 	onEnded func()
+	vol     float64
+	volSet  bool
 }
 
 func newFakePlayer() *fakePlayer { return &fakePlayer{errs: map[string]error{}} }
@@ -37,11 +39,22 @@ func (p *fakePlayer) Play(path string) error {
 	p.played = append(p.played, path)
 	return p.errs[path]
 }
-func (p *fakePlayer) Stop()                            { p.mu.Lock(); p.stops++; p.mu.Unlock() }
-func (p *fakePlayer) TogglePause() bool                { return false }
-func (p *fakePlayer) IsPlaying() bool                  { return false }
-func (p *fakePlayer) SetVolume(float64)                {}
-func (p *fakePlayer) Volume() float64                  { return 1 }
+func (p *fakePlayer) Stop()             { p.mu.Lock(); p.stops++; p.mu.Unlock() }
+func (p *fakePlayer) TogglePause() bool { return false }
+func (p *fakePlayer) IsPlaying() bool   { return false }
+func (p *fakePlayer) SetVolume(v float64) {
+	p.mu.Lock()
+	p.vol, p.volSet = v, true
+	p.mu.Unlock()
+}
+func (p *fakePlayer) Volume() float64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.volSet {
+		return p.vol
+	}
+	return 1
+}
 func (p *fakePlayer) Position() time.Duration          { return 0 }
 func (p *fakePlayer) Duration() time.Duration          { return 0 }
 func (p *fakePlayer) Seek(time.Duration) error         { return nil }
